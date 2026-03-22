@@ -6,6 +6,32 @@ AI가 면접관이 되어 CS 지식을 평가하고, 부족한 부분을 추적�
 
 ---
 
+## 개발 노트
+
+> **이 프로젝트의 코드는 단 한 줄도 내가 직접 짜지 않았다.**
+
+**Claude Code** (Anthropic의 AI 코딩 도구)가 모든 코드를 작성했다.
+
+| 역할 | 담당 |
+|------|------|
+| 아이디어 | 사람 |
+| `docs/` CS 학습 자료 작성 | 사람 |
+| 방향 결정 및 요구사항 정의 | 사람 |
+| **백엔드 코드 전체** | **Claude Code** |
+| **프론트엔드 코드 전체** | **Claude Code** |
+| **Docker / Nginx / CI-CD 설정** | **Claude Code** |
+| **Fly.io + Vercel 배포 설정** | **Claude Code** |
+| **버그 수정 및 QA** | **Claude Code** |
+
+전체 구현 흐름:
+
+1. `/office-hours` — 아이디어 구체화 및 설계 문서 작성
+2. **Claude Code가 구현**: FastAPI 백엔드, React 프론트엔드, Docker Compose, 배포 설정 전부
+3. `/qa` — 헤드리스 브라우저로 전체 페이지 QA 테스트 (헬스 스코어 91/100)
+4. `/ship` — 변경사항 커밋 및 push
+
+---
+
 ## 기능
 
 - **인터뷰 모드** — 주제(네트워크/OS/자료구조/DB)를 선택하면 랜덤 질문 + 심화 꼬리질문 최대 2회
@@ -247,23 +273,3 @@ CS/
     └── fly.toml
 ```
 
----
-
-## 개발 노트
-
-이 프로젝트는 **Claude Code** (Anthropic의 AI 코딩 도구)와 함께 만들었다.
-
-전체 구현 흐름:
-
-1. `/office-hours` — 아이디어 구체화 및 설계 문서 작성
-2. **Claude Code가 구현한 것**:
-   - FastAPI 백엔드 전체 (라우터, DB 스키마, SM-2 알고리즘, Claude API 연동)
-   - React 프론트엔드 전체 (5개 페이지, 컴포넌트, Web Speech API 훅)
-   - Docker Compose + Nginx 설정
-   - TypeScript 빌드 오류 수정 (QA 중 발견)
-   - Fly.io + Vercel 배포 설정
-3. `/qa` — 헤드리스 브라우저로 전체 페이지 QA 테스트 (헬스 스코어 91/100)
-4. `/ship` — 변경사항 커밋 및 push
-
-사람이 한 것: 아이디어, docs 폴더의 CS 학습 자료 작성, 방향 결정.
-Claude Code가 한 것: 나머지 전부.
