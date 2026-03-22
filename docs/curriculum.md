@@ -31,16 +31,16 @@
 
 | 번호 | 주제 | 파일명 | 진행 |
 |------|------|--------|------|
-| 02-01 | 프로세스 vs 스레드 | `02-01-process-thread.md` | [ ] |
-| 02-02 | 멀티프로세스 vs 멀티스레드 | `02-02-multiprocess-multithread.md` | [ ] |
-| 02-03 | 인터럽트 / 시스템 콜 | `02-03-interrupt-syscall.md` | [ ] |
-| 02-04 | CPU 스케줄링 (FCFS, SJF, RR, Priority) | `02-04-cpu-scheduling.md` | [ ] |
-| 02-05 | 동기화 (뮤텍스, 세마포어, 모니터) | `02-05-synchronization.md` | [ ] |
-| 02-06 | 교착상태 (Deadlock) | `02-06-deadlock.md` | [ ] |
-| 02-07 | 메모리 관리 (페이징, 세그멘테이션) | `02-07-memory-management.md` | [ ] |
-| 02-08 | 가상 메모리 / 페이지 교체 알고리즘 | `02-08-virtual-memory.md` | [ ] |
-| 02-09 | 캐시 (L1/L2/L3, 히트/미스) | `02-09-cache.md` | [ ] |
-| 02-10 | 파일 시스템 | `02-10-file-system.md` | [ ] |
+| 02-01 | 프로세스 vs 스레드 | `02-01-process-thread.md` | [x] |
+| 02-02 | 멀티프로세스 vs 멀티스레드 | `02-02-multiprocess-multithread.md` | [x] |
+| 02-03 | 인터럽트 / 시스템 콜 | `02-03-interrupt-syscall.md` | [x] |
+| 02-04 | CPU 스케줄링 (FCFS, SJF, RR, Priority) | `02-04-cpu-scheduling.md` | [x] |
+| 02-05 | 동기화 (뮤텍스, 세마포어, 모니터) | `02-05-synchronization.md` | [x] |
+| 02-06 | 교착상태 (Deadlock) | `02-06-deadlock.md` | [x] |
+| 02-07 | 메모리 관리 (페이징, 세그멘테이션) | `02-07-memory-management.md` | [x] |
+| 02-08 | 가상 메모리 / 페이지 교체 알고리즘 | `02-08-virtual-memory.md` | [x] |
+| 02-09 | 캐시 (L1/L2/L3, 히트/미스) | `02-09-cache.md` | [x] |
+| 02-10 | 파일 시스템 | `02-10-file-system.md` | [x] |
 
 ---
 
