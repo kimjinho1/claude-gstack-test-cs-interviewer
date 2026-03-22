@@ -63,13 +63,24 @@ class AIProvider:
                 logger.warning(f"Claude follow-up failed: {e}")
         return await self._ollama_follow_up(prompt)
 
+    @staticmethod
+    def _parse_json(text: str) -> dict:
+        """```json ... ``` 코드 블록 제거 후 JSON 파싱"""
+        text = text.strip()
+        if text.startswith("```"):
+            text = text.split("```", 2)[1]
+            if text.startswith("json"):
+                text = text[4:]
+            text = text.strip()
+        return json.loads(text)
+
     async def _claude_evaluate(self, prompt: str) -> EvalResult:
         response = await self._claude.messages.create(
             model="claude-sonnet-4-6",
             max_tokens=512,
             messages=[{"role": "user", "content": prompt}],
         )
-        data = json.loads(response.content[0].text)
+        data = self._parse_json(response.content[0].text)
         return EvalResult(
             score=int(data["score"]),
             feedback=data["feedback"],
@@ -82,7 +93,7 @@ class AIProvider:
             max_tokens=256,
             messages=[{"role": "user", "content": prompt}],
         )
-        data = json.loads(response.content[0].text)
+        data = self._parse_json(response.content[0].text)
         return FollowUpResult(follow_up_question=data["follow_up_question"])
 
     async def _ollama_evaluate(self, prompt: str) -> EvalResult:
