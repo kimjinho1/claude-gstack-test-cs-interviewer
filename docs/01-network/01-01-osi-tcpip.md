@@ -80,6 +80,27 @@ CAM Table 예시:
 - 무선 클라이언트의 802.11 프레임을 Ethernet 프레임으로 변환 (브리징)
 - 무선 클라이언트 MAC을 스위치 CAM Table에 학습시킴
 
+**MAC Table / ARP Table은 어떻게 채워지나?**
+
+두 테이블 모두 처음엔 비어 있음. 통신이 발생할 때 채워짐.
+
+MAC Table (스위치): **수동 학습** — 프레임이 들어올 때 출발지 MAC을 자동 기록
+```
+프레임 수신 → 출발지 MAC + 포트 매핑 → CAM Table에 기록
+물어보지 않음. 지나가는 프레임 보고 그냥 배움.
+```
+
+ARP Table (PC/서버): **브로드캐스트로 직접 물어봄**
+```
+1. PC-A: "192.168.1.20의 MAC 알려줘" → ARP Request (브로드캐스트)
+2. 스위치: flooding (모르니까) + PC-A MAC 학습
+3. PC-B: "내 MAC은 AA:BB:CC:44:55:66" → ARP Reply (유니캐스트)
+4. 스위치: PC-B MAC 학습
+5. PC-A: ARP Table에 IP→MAC 매핑 저장
+```
+
+첫 통신은 항상 브로드캐스트/flooding → 응답 오면 두 테이블 모두 채워짐 → 이후부터 유니캐스트로 직접 전달.
+
 ### L3 - Network Layer
 
 - IP 주소로 **다른 네트워크 간** 경로 결정 (라우팅)
