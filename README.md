@@ -163,6 +163,48 @@ git push
 
 ---
 
+## 배포 트러블슈팅
+
+### Vercel — SPA 라우팅 + API 프록시
+
+`vercel.json`은 반드시 `routes` 포맷을 사용해야 한다. `rewrites` 포맷은 `/api/*` 프록시와 SPA 폴백을 동시에 처리하지 못한다.
+
+```json
+{
+  "routes": [
+    { "src": "/api/(.*)", "dest": "https://cs-trainer-api.fly.dev/api/$1" },
+    { "handle": "filesystem" },
+    { "src": "/(.*)", "dest": "/index.html" }
+  ]
+}
+```
+
+순서 중요: API 프록시 → 정적 파일 → SPA 폴백.
+
+### Vercel — 실제 배포 URL 확인
+
+`cs-trainer.vercel.app` 같은 URL은 내 프로젝트가 아닐 수 있다. Vercel 대시보드 → 프로젝트 → **Domains** 탭에서 실제 URL을 확인해야 한다.
+
+### Fly.io — FRONTEND_URL 불일치 시 OAuth 리다이렉트 오류
+
+Google OAuth 로그인 후 엉뚱한 사이트로 리다이렉트되면 `FRONTEND_URL`이 잘못 설정된 것이다.
+
+```bash
+fly secrets set FRONTEND_URL=https://실제-vercel-url.vercel.app
+fly secrets set ALLOWED_ORIGINS=https://실제-vercel-url.vercel.app,http://localhost:5174
+```
+
+### Fly.io — OAuth `invalid_client` 오류
+
+Fly.io에 Google OAuth 키가 제대로 설정됐는지 확인:
+
+```bash
+fly secrets set GOOGLE_CLIENT_ID=실제-클라이언트-ID
+fly secrets set GOOGLE_CLIENT_SECRET=실제-클라이언트-시크릿
+```
+
+---
+
 ## 프로젝트 구조
 
 ```
