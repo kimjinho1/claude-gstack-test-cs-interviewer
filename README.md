@@ -99,6 +99,9 @@ docker compose -f cs-trainer/docker-compose.yml up -d --build
 # 특정 서비스만 재빌드
 docker compose -f cs-trainer/docker-compose.yml up -d --build backend
 docker compose -f cs-trainer/docker-compose.yml up -d --build frontend
+
+# 백엔드만 재빌드 후 재시작 (프론트엔드 유지)
+docker compose -f cs-trainer/docker-compose.yml build backend && docker compose -f cs-trainer/docker-compose.yml up -d backend
 ```
 
 ### 프론트엔드 (Vercel)
