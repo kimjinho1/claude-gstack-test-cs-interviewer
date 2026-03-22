@@ -116,13 +116,76 @@ TCP 3-way handshake
 → TCP 4-way handshake
 ```
 
-**SYN Flooding 공격**
+**SYN Flooding 공격 — 상세**
+
+**왜 문제가 생기나?**
+
+서버는 SYN을 받으면 `SYN_RECEIVED` 상태로 **Backlog Queue(대기 큐)** 에 항목을 생성하고 ACK를 기다림.
+이 큐는 크기가 제한되어 있음 (보통 128~1024개).
+
 ```
-공격자: SYN만 수백만 개 전송 (ACK 안 보냄)
-서버: SYN_RECEIVED 상태로 연결 대기 큐 꽉 참
-정상 클라이언트: 연결 못 함 → DoS
-대응: SYN Cookie (큐 없이 SEQ에 상태 인코딩)
+정상 흐름:
+Client ──SYN──▶ Server: 큐에 추가 (SYN_RECEIVED)
+Client ◀─SYN-ACK── Server
+Client ──ACK──▶ Server: 큐에서 제거 → ESTABLISHED
+
+SYN Flooding:
+공격자 ──SYN──▶ Server: 큐에 추가
+공격자 ──SYN──▶ Server: 큐에 추가
+공격자 ──SYN──▶ Server: 큐에 추가  ...수백만 개
+(ACK는 절대 안 옴)
+
+큐가 꽉 참
+정상 Client ──SYN──▶ Server: 큐 가득 → SYN-ACK 못 보냄 → 연결 불가 (DoS)
 ```
+
+각 SYN_RECEIVED 항목은 **타임아웃(보통 75초)** 까지 큐에 남아있음.
+공격자가 그 속도보다 빠르게 SYN을 보내면 큐는 항상 가득 찬 상태.
+
+추가로 공격자는 **출발지 IP를 위조(Spoofing)** 해서 보냄 → 서버가 SYN-ACK를 엉뚱한 곳으로 보냄 → 추적 어려움.
+
+**SYN Cookie — 어떻게 방어하나?**
+
+핵심 아이디어: **큐에 저장하지 않는다.** 대신 SYN-ACK의 SEQ 번호 자체에 연결 정보를 인코딩.
+
+```
+일반 방식:
+SYN 수신 → 큐에 저장 → SYN-ACK 전송 → ACK 기다림
+
+SYN Cookie 방식:
+SYN 수신 → 큐에 저장 안 함
+          → SEQ = Hash(src_ip, src_port, dst_ip, dst_port, timestamp, secret)
+          → SYN-ACK 전송 (SEQ에 상태 인코딩)
+
+ACK 수신 시:
+  ACK 번호 = SEQ + 1 이어야 함
+  → ACK 번호에서 역으로 Hash 검증
+  → 일치하면 "이건 진짜 클라이언트" → ESTABLISHED
+  → 불일치/위조 SYN이었으면 ACK 자체가 안 옴 → 아무 일도 없음
+```
+
+```
+공격자가 SYN 수백만 개 전송해도:
+→ 서버는 큐에 아무것도 저장 안 함
+→ SYN-ACK만 보내고 잊어버림
+→ 공격자는 ACK 안 보냄 → 서버 입장에서 그냥 없던 일
+
+진짜 클라이언트:
+→ SYN-ACK 받고 ACK 전송
+→ 서버: ACK 번호 검증 성공 → 연결 수립
+```
+
+**SYN Cookie의 단점**
+
+- SEQ에 저장할 수 있는 정보가 제한적 → TCP 옵션(Window Scale, SACK 등) 정보 손실 가능
+- 최신 구현에서는 이를 보완해 실용적으로 사용
+
+**스위치/AP 관점**
+
+스위치나 AP의 관리 포트(SSH 22, HTTPS 443)도 SYN Flooding 타깃이 될 수 있음.
+- 장비 자체 ACL로 관리 포트 접근 IP 제한 (허용된 관리망만 접근)
+- Rate Limiting: 포트당 SYN 패킷 수 제한
+- 관리 VLAN 분리로 공격 노출면 최소화
 
 ---
 
