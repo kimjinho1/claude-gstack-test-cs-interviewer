@@ -161,6 +161,22 @@ git commit -m "feat: ..."
 git push
 ```
 
+### CI/CD — 백엔드 자동 배포 (GitHub Actions)
+
+`main` 브랜치에 push할 때 `cs-trainer/backend/`, `Dockerfile.backend`, `docs/` 변경이 있으면 Fly.io에 자동 배포된다.
+
+**최초 설정 (한 번만):**
+
+1. Fly.io API 토큰 발급:
+   ```bash
+   fly auth token
+   ```
+2. GitHub 레포 → **Settings → Secrets and variables → Actions → New repository secret**
+   - Name: `FLY_API_TOKEN`
+   - Value: 위에서 나온 토큰
+
+이후 코드 push만 하면 자동 배포됨.
+
 ---
 
 ## 배포 트러블슈팅
