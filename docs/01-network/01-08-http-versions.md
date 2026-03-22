@@ -44,30 +44,78 @@ TCP 연결 → 요청1 → 응답1 → 요청2 → 응답2 → 요청3 → 응�
 
 ---
 
-### HTTP/2 — 멀티플렉싱
+### HTTP/2 — 멀티플렉싱과 TLS
 
-**하나의 TCP 연결 안에서 여러 요청/응답을 동시에 처리.**
+**HTTP/2는 실질적으로 TLS 위에서만 동작한다.**
 
 ```
-HTTP/1.1:
-연결1: 요청A ──────── 응답A
-연결2: 요청B ──────── 응답B
-연결3: 요청C ──────── 응답C
+스펙상으로는 HTTP/2를 평문(h2c)으로도 허용하지만,
+Chrome, Firefox, Safari 등 모든 브라우저는 TLS 위에서만 HTTP/2 사용.
+→ HTTP/2 = HTTPS라고 봐도 무방.
 
-HTTP/2 (하나의 연결, 스트림으로 분리):
+왜 TLS와 함께 쓰는가:
+  TLS Handshake의 ALPN(Application-Layer Protocol Negotiation) 확장을 통해
+  어떤 프로토콜을 쓸지 협상:
+
+  ClientHello → ALPN extension: ["h2", "http/1.1"]
+  ServerHello → ALPN: "h2" 선택
+  → TLS 연결 완료와 동시에 HTTP/2 사용 합의
+  → 별도 업그레이드 왕복 없이 바로 HTTP/2 시작
+```
+
+**하나의 TLS 연결 안에서 여러 요청/응답을 동시에 처리.**
+
+```
+HTTP/1.1 (TLS × 3개 연결):
+  TLS연결1: [TLS 핸드셰이크] → 요청A → 응답A
+  TLS연결2: [TLS 핸드셰이크] → 요청B → 응답B
+  TLS연결3: [TLS 핸드셰이크] → 요청C → 응답C
+  → TLS 핸드셰이크 비용 × 3배
+
+HTTP/2 (TLS 1개 연결, 스트림으로 분리):
+  [TLS 핸드셰이크 1회]
           스트림1: [요청A] ──── [응답A]
-연결1 ─── 스트림2: [요청B] ──── [응답B]  ← 동시 처리
+  연결1 ── 스트림2: [요청B] ──── [응답B]  ← 동시 처리
           스트림3: [요청C] ──── [응답C]
+  → TLS 세션 재사용, 핸드셰이크 비용 1회로 절감
+```
+
+**프레임과 스트림 구조**
+
+```
+HTTP/2 데이터 단위: 프레임(Frame)
+
+┌─────────┬──────┬──────────────┬──────────────────────┐
+│ Length  │ Type │  Flags       │ Stream ID            │
+│ (24bit) │(8bit)│  (8bit)      │ (31bit)              │
+├─────────┴──────┴──────────────┴──────────────────────┤
+│ Payload (가변 길이)                                    │
+└───────────────────────────────────────────────────────┘
+
+프레임 타입:
+  DATA    : 실제 HTTP Body
+  HEADERS : HTTP 헤더 (HPACK 압축)
+  SETTINGS: 연결 설정 (최대 스트림 수 등)
+  WINDOW_UPDATE: 흐름 제어
+  PING    : 연결 유지 확인
+  RST_STREAM: 스트림 즉시 종료
+
+스트림 ID:
+  클라이언트 요청: 홀수 (1, 3, 5...)
+  서버 푸시:      짝수 (2, 4, 6...)
+  스트림 0:       연결 전체 제어 메시지
 ```
 
 **주요 개선사항**
 
 | 기능 | 설명 |
 |------|------|
-| 멀티플렉싱 | 하나의 TCP 연결에서 여러 스트림 동시 처리 |
-| 헤더 압축 (HPACK) | 반복되는 헤더 압축 (Cookie, User-Agent 등) |
+| 멀티플렉싱 | 하나의 TLS 연결에서 여러 스트림 동시 처리 |
+| 헤더 압축 (HPACK) | 반복되는 헤더 압축 (Cookie, User-Agent 등) — 최대 85~88% 압축 |
 | 서버 푸시 | 클라이언트 요청 전에 서버가 미리 리소스 전송 |
 | 바이너리 프레임 | 텍스트 → 바이너리로 파싱 효율 향상 |
+| 흐름 제어 | 스트림/연결 단위로 수신 윈도우 크기 조절 |
+| 스트림 우선순위 | 중요한 리소스(CSS)를 먼저 처리 지정 가능 |
 
 **HTTP/2의 한계 — TCP 레벨 HOL Blocking**
 
@@ -85,35 +133,80 @@ TCP 패킷 하나 손실 시:
 
 ---
 
-### HTTP/3 — QUIC (UDP 기반)
+### HTTP/3 — QUIC (UDP 기반)과 TLS 통합
 
-**TCP를 버리고 UDP 위에 QUIC 프로토콜을 새로 구현.**
+**TCP를 버리고 UDP 위에 QUIC 프로토콜을 새로 구현. TLS 1.3이 QUIC 내부에 통합.**
 
 ```
 HTTP/1.1, HTTP/2: [HTTP] → [TLS] → [TCP] → [IP]
-HTTP/3:           [HTTP] → [QUIC (TLS 내장)] → [UDP] → [IP]
+HTTP/3:           [HTTP/3] → [QUIC (TLS 1.3 내장)] → [UDP] → [IP]
+```
+
+**QUIC + TLS 1.3 통합의 의미**
+
+```
+HTTP/2 + TLS 1.2:
+  TCP 핸드셰이크 (1RTT) + TLS 핸드셰이크 (2RTT) = 총 3RTT
+
+HTTP/2 + TLS 1.3:
+  TCP 핸드셰이크 (1RTT) + TLS 핸드셰이크 (1RTT) = 총 2RTT
+
+HTTP/3 (QUIC + TLS 1.3 통합):
+  QUIC 초기 패킷에 TLS ClientHello 포함 = 1RTT로 전체 완료
+  재접속(이전 세션 있으면) = 0-RTT
+
+왜 가능한가:
+  QUIC은 연결 수립과 TLS 협상을 하나의 패킷으로 묶음.
+  TLS 1.3의 Handshake 메시지를 QUIC Initial/Handshake 패킷으로 전송.
+  TLS 인증서, 키 교환, 연결 파라미터가 단일 왕복으로 완료.
+
+보안 강화:
+  QUIC은 헤더 포함 거의 모든 패킷을 암호화 (TLS 1.3 의무)
+  TCP+TLS: 초기 TCP 핸드셰이크는 평문
+  QUIC: Initial 패킷도 AEAD로 보호 → 트래픽 분석/수정 방지
 ```
 
 **QUIC이 해결한 것들**
 
-| 문제 | HTTP/2 (TCP) | HTTP/3 (QUIC) |
-|------|-------------|--------------|
+| 문제 | HTTP/2 (TCP+TLS) | HTTP/3 (QUIC) |
+|------|-----------------|--------------|
 | HOL Blocking | TCP 레벨 존재 | 스트림별 독립 처리 |
-| 연결 수립 | TCP(1RTT) + TLS(1RTT) = 2RTT | QUIC 1RTT (TLS 내장) |
-| 재연결 | 새 핸드셰이크 | 0-RTT (이전 세션 재사용) |
+| 초기 연결 | TCP(1RTT)+TLS(1~2RTT) = 2~3RTT | QUIC 1RTT (TLS 통합) |
+| 재연결 | 새 핸드셰이크 (1~2RTT) | 0-RTT (PSK 재사용) |
 | IP 변경 시 | 연결 끊김 (WiFi→LTE) | Connection ID로 유지 |
+| 패킷 암호화 | TLS 전까지 평문 | 처음부터 암호화 |
 
 **스트림별 독립 패킷 손실 처리**
 ```
 QUIC 스트림1 패킷 손실 → 스트림1만 재전송 대기
 QUIC 스트림2, 3 → 영향 없이 계속 진행
+
+(HTTP/2 TCP: 스트림1 손실 → 스트림2, 3도 전부 대기)
 ```
 
 **Connection Migration**
 ```
 WiFi → LTE로 전환 시:
-TCP: IP 변경 → 연결 끊김 → 재연결 (3-way handshake 다시)
-QUIC: Connection ID 유지 → 끊김 없이 継続
+TCP: (src IP, src Port, dst IP, dst Port) 4-tuple로 연결 식별
+     → IP 변경 = 새 연결 (TCP 핸드셰이크 + TLS 핸드셰이크 재시작)
+
+QUIC: 64bit Connection ID로 연결 식별
+      → IP 변경되어도 Connection ID 유지 → 끊김 없이 계속
+      → 모바일 앱에서 WiFi → LTE 전환 시 스트리밍 유지
+```
+
+**0-RTT 재연결 메커니즘**
+```
+첫 연결:
+  QUIC 핸드셰이크 → 서버가 Session Ticket(PSK) 발급 → 클라이언트 저장
+
+재연결 (0-RTT):
+  클라이언트 → 첫 패킷에 PSK + 데이터 함께 전송
+  서버 → PSK 검증 후 즉시 처리 (핸드셰이크 대기 없음)
+
+0-RTT 주의점:
+  Replay Attack 가능 (공격자가 패킷 재전송)
+  → 멱등성 있는 GET 요청에만 권장, POST/PUT은 1-RTT 권장
 ```
 
 ---
@@ -132,91 +225,205 @@ HTTP/3    ── UDP+QUIC, 스트림 독립, HOL 완전 해결, 빠른 연결
 
 ```python
 import asyncio
+import ssl
 import time
 from dataclasses import dataclass
-from typing import Optional
 
 
 @dataclass
 class Request:
     id: int
     url: str
-    size_kb: int  # 응답 크기 (처리 시간 시뮬레이션용)
+    size_kb: int
 
 
-# HTTP/1.1 시뮬레이션: 순차 처리
+# ── HTTP/1.1 순차 처리 vs HTTP/2 멀티플렉싱 비교 ─────────
+
 def http1_sequential(requests: list[Request]) -> float:
+    """HTTP/1.1: 순차 처리 (HOL Blocking 시뮬레이션)"""
     start = time.time()
     for req in requests:
-        time.sleep(req.size_kb * 0.01)  # 크기에 비례한 처리 시간
+        time.sleep(req.size_kb * 0.005)
         print(f"[HTTP/1.1] 완료: {req.url} ({req.size_kb}KB)")
     return time.time() - start
 
 
-# HTTP/2 시뮬레이션: 멀티플렉싱 (비동기 동시 처리)
-async def _fetch_http2(req: Request):
-    await asyncio.sleep(req.size_kb * 0.01)
+async def _fetch_h2(req: Request):
+    """HTTP/2 스트림 하나 — 비동기로 동시에 처리"""
+    await asyncio.sleep(req.size_kb * 0.005)
     print(f"[HTTP/2]   완료: {req.url} ({req.size_kb}KB)")
 
 
 async def http2_multiplexed(requests: list[Request]) -> float:
+    """HTTP/2: asyncio.gather로 멀티플렉싱 시뮬레이션"""
     start = time.time()
-    await asyncio.gather(*[_fetch_http2(r) for r in requests])  # 동시 처리
+    # 하나의 TLS 연결 위에서 모든 요청을 동시에 처리
+    await asyncio.gather(*[_fetch_h2(r) for r in requests])
     return time.time() - start
 
 
-# HTTP/1.1 HOL Blocking 시뮬레이션
-def hol_blocking_demo():
-    print("\n=== HTTP/1.1 HOL Blocking ===")
-    requests = [
-        Request(1, "/large-image.jpg", 500),   # 느린 요청 (먼저 들어옴)
-        Request(2, "/style.css", 10),
-        Request(3, "/script.js", 20),
-    ]
-    # 앞 요청이 느리면 뒤 요청들이 모두 대기
-    for req in requests:
-        delay = req.size_kb * 0.001
-        time.sleep(delay)
-        print(f"  응답: {req.url} (대기 후 완료)")
+# ── asyncio + HTTPS: 실제 비동기 HTTPS 요청 패턴 ─────────
 
+async def async_https_request(host: str, path: str) -> bytes:
+    """
+    asyncio로 HTTPS 요청 (저수준):
+    SSL 컨텍스트 생성 → open_connection으로 TLS 연결 → HTTP 요청 → 읽기
+    """
+    ssl_ctx = ssl.create_default_context()
 
-# QUIC 스트림 독립성 시뮬레이션
-async def quic_independent_streams():
-    print("\n=== HTTP/3 QUIC 스트림 독립 처리 ===")
+    # asyncio가 TLS 핸드셰이크를 비동기로 처리
+    # → 핸드셰이크 대기 중에도 이벤트 루프가 다른 코루틴 실행 가능
+    reader, writer = await asyncio.open_connection(host, 443, ssl=ssl_ctx)
 
-    async def stream(req: Request, packet_loss: bool = False):
-        if packet_loss:
-            print(f"  [스트림{req.id}] 패킷 손실 발생 → 재전송 중...")
-            await asyncio.sleep(0.1)  # 재전송 딜레이
-        await asyncio.sleep(req.size_kb * 0.001)
-        print(f"  [스트림{req.id}] 완료: {req.url}")
-
-    # 스트림1만 패킷 손실, 나머지는 영향 없음
-    await asyncio.gather(
-        stream(Request(1, "/large.jpg", 500), packet_loss=True),
-        stream(Request(2, "/style.css", 10)),   # 스트림1 영향 없음
-        stream(Request(3, "/script.js", 20)),   # 스트림1 영향 없음
+    # HTTP/1.1 요청 전송
+    request = (
+        f"GET {path} HTTP/1.1\r\n"
+        f"Host: {host}\r\n"
+        f"Connection: close\r\n\r\n"
     )
+    writer.write(request.encode())
+    await writer.drain()
+
+    # 응답 읽기 (비동기 — 데이터 올 때까지 이벤트 루프에 제어 반환)
+    response = await reader.read(4096)
+    writer.close()
+    return response
 
 
-# 실행
+async def concurrent_https_demo(host: str = "httpbin.org"):
+    """
+    여러 HTTPS 요청을 동시에 (asyncio.gather):
+    HTTP/1.1 방식이지만 비동기로 I/O 대기를 겹치게 만든 것.
+    HTTP/2 라이브러리(httpx, aiohttp)를 쓰면 실제 단일 TLS 연결로 멀티플렉싱.
+    """
+    paths = ["/get", "/ip", "/uuid"]
+    print(f"\n[비동기 HTTPS] {len(paths)}개 요청 동시 처리")
+
+    start = time.time()
+    try:
+        results = await asyncio.gather(
+            *[async_https_request(host, p) for p in paths],
+            return_exceptions=True
+        )
+        elapsed = time.time() - start
+        for path, result in zip(paths, results):
+            if isinstance(result, Exception):
+                print(f"  {path}: 오류 ({result})")
+            else:
+                status_line = result.split(b"\r\n")[0].decode()
+                print(f"  {path}: {status_line}")
+        print(f"  총 시간: {elapsed:.2f}s (순차라면 ~{len(paths)*0.5:.1f}s 예상)")
+    except Exception as e:
+        print(f"  접속 실패 (네트워크 없음 가능): {e}")
+
+
+# ── HTTPS 연결 풀과 TLS 세션 재사용 ──────────────────────
+
+class HttpsConnectionPool:
+    """
+    TLS 세션 재사용을 활용한 HTTPS 연결 풀.
+    HTTP/2 멀티플렉싱의 핵심: 하나의 TLS 연결을 여러 요청이 공유.
+    """
+    def __init__(self, host: str, max_connections: int = 5):
+        self.host = host
+        self.max_connections = max_connections
+        self._ssl_ctx = ssl.create_default_context()
+
+        # TLS 세션 재사용 활성화:
+        # 이전 핸드셰이크의 Session Ticket(TLS 1.3 PSK)으로
+        # 다음 연결 시 핸드셰이크 생략 가능 (0-RTT 또는 1-RTT로 단축)
+        # Python ssl은 자동으로 세션 캐시 유지
+
+        self._semaphore = asyncio.Semaphore(max_connections)
+
+    async def get(self, path: str) -> tuple[int, bytes]:
+        async with self._semaphore:  # 최대 연결 수 제한
+            try:
+                reader, writer = await asyncio.open_connection(
+                    self.host, 443, ssl=self._ssl_ctx
+                )
+                writer.write(
+                    f"GET {path} HTTP/1.1\r\nHost: {self.host}\r\n"
+                    f"Connection: close\r\n\r\n".encode()
+                )
+                await writer.drain()
+                data = await reader.read(8192)
+                writer.close()
+                status = int(data.split(b" ")[1]) if b" " in data else 0
+                return status, data
+            except Exception as e:
+                return 0, str(e).encode()
+
+
+# ── TCP HOL Blocking vs QUIC 스트림 독립 시뮬레이션 ──────
+
+async def tcp_hol_blocking():
+    """
+    HTTP/2 over TCP: 패킷 손실 시 모든 스트림 대기
+    """
+    print("\n[HTTP/2 + TCP] 패킷 손실 시뮬레이션")
+
+    # TCP 레벨 HOL: 손실된 패킷 재전송될 때까지 뒤 스트림 전부 대기
+    async def stream_tcp(name: str, delay: float, hol_block_until: float = 0):
+        await asyncio.sleep(hol_block_until)   # HOL 블로킹 대기
+        await asyncio.sleep(delay)
+        print(f"  [{name}] 완료")
+
+    start = time.time()
+    packet_loss_retransmit = 0.15  # 재전송 시간
+    await asyncio.gather(
+        stream_tcp("스트림1(손실)", 0.05, hol_block_until=packet_loss_retransmit),
+        stream_tcp("스트림2",       0.02, hol_block_until=packet_loss_retransmit),
+        stream_tcp("스트림3",       0.01, hol_block_until=packet_loss_retransmit),
+    )
+    print(f"  HTTP/2+TCP 총 시간: {time.time()-start:.2f}s (모든 스트림이 재전송 대기)")
+
+
+async def quic_independent_streams():
+    """
+    HTTP/3 QUIC: 스트림별 독립 → 다른 스트림에 영향 없음
+    """
+    print("\n[HTTP/3 + QUIC] 스트림 독립 처리")
+
+    async def stream_quic(name: str, delay: float, packet_loss: bool = False):
+        if packet_loss:
+            print(f"  [{name}] 패킷 손실 → 해당 스트림만 재전송 중...")
+            await asyncio.sleep(0.15)  # 해당 스트림만 재전송 대기
+        await asyncio.sleep(delay)
+        print(f"  [{name}] 완료")
+
+    start = time.time()
+    await asyncio.gather(
+        stream_quic("스트림1(손실)", 0.05, packet_loss=True),
+        stream_quic("스트림2",       0.02),   # 스트림1과 무관하게 진행
+        stream_quic("스트림3",       0.01),   # 스트림1과 무관하게 진행
+    )
+    print(f"  HTTP/3+QUIC 총 시간: {time.time()-start:.2f}s (다른 스트림은 영향 없음)")
+
+
+# ── 실행 ──────────────────────────────────────────────────
+
 if __name__ == "__main__":
     requests = [
         Request(1, "/api/switches", 50),
-        Request(2, "/api/aps", 30),
+        Request(2, "/api/aps",      30),
         Request(3, "/dashboard.js", 200),
     ]
 
     print("=== HTTP/1.1 순차 처리 ===")
     t1 = http1_sequential(requests)
-    print(f"총 시간: {t1:.2f}s\n")
+    print(f"총 시간: {t1:.3f}s\n")
 
-    print("=== HTTP/2 멀티플렉싱 ===")
+    print("=== HTTP/2 멀티플렉싱 (asyncio.gather) ===")
     t2 = asyncio.run(http2_multiplexed(requests))
-    print(f"총 시간: {t2:.2f}s (병렬 처리로 가장 느린 요청 시간만큼)")
+    print(f"총 시간: {t2:.3f}s (가장 느린 요청 기준 — 병렬 처리)\n")
 
-    hol_blocking_demo()
+    # HOL Blocking vs QUIC 비교
+    asyncio.run(tcp_hol_blocking())
     asyncio.run(quic_independent_streams())
+
+    # 비동기 HTTPS (네트워크 있으면 실행)
+    # asyncio.run(concurrent_https_demo("httpbin.org"))
 ```
 
 ---
@@ -226,17 +433,26 @@ if __name__ == "__main__":
 - Q: HTTP/1.1의 HOL Blocking이란?
   A: 파이프라이닝 사용 시 앞 요청의 응답이 오기 전까지 뒤 응답을 처리 못 하는 문제. 앞 요청이 느리면 뒤 요청들이 모두 대기. 브라우저는 이를 우회하려고 도메인당 TCP 연결 6개를 병렬로 맺음.
 
+- Q: HTTP/2는 왜 TLS(HTTPS)가 사실상 필수인가?
+  A: 스펙상 평문(h2c)도 가능하지만, Chrome/Firefox 등 모든 브라우저가 TLS 위에서만 HTTP/2를 구현. 이유는 TLS Handshake의 ALPN 확장을 통해 h2 프로토콜을 별도 왕복 없이 협상할 수 있고, 중간 네트워크 장비(프록시, NAT)가 HTTP/2 바이너리 프레임을 HTTP/1.1로 오해해 변형하는 문제를 방지하기 위함.
+
 - Q: HTTP/2 멀티플렉싱이란?
-  A: 하나의 TCP 연결 안에서 여러 스트림으로 요청/응답을 동시에 처리. HTTP/1.1의 애플리케이션 레벨 HOL Blocking 해결. 단, TCP 패킷 손실 시 모든 스트림이 대기하는 TCP 레벨 HOL은 여전히 존재.
+  A: 하나의 TLS 연결 안에서 여러 스트림으로 요청/응답을 동시에 처리. 각 스트림은 독립적으로 HTTP 요청/응답을 처리하고 프레임 단위로 인터리빙(교차 전송). HTTP/1.1의 애플리케이션 레벨 HOL Blocking 해결. 단, TCP 패킷 손실 시 모든 스트림이 대기하는 TCP 레벨 HOL은 여전히 존재.
 
 - Q: HTTP/3이 UDP를 쓰는 이유는?
-  A: TCP의 구조적 한계(HOL Blocking, 느린 연결 수립, IP 변경 시 연결 끊김)를 해결하기 위해. UDP 위에 QUIC을 구현해 스트림별 독립 패킷 손실 처리, 1RTT 연결 수립(TLS 내장), Connection Migration을 지원.
+  A: TCP의 구조적 한계(HOL Blocking, 느린 연결 수립, IP 변경 시 연결 끊김)를 해결하기 위해. UDP 위에 QUIC을 구현해 스트림별 독립 패킷 손실 처리, 1RTT 연결 수립(TLS 1.3 통합), Connection Migration을 지원. 또한 QUIC은 TLS 1.3을 내장해 초기 패킷부터 암호화.
 
 - Q: HTTP/2와 HTTP/3의 HOL Blocking 차이는?
   A: HTTP/2는 멀티플렉싱으로 애플리케이션 레벨 HOL은 해결했지만, TCP 패킷 하나 손실 시 전체 스트림이 재전송을 기다리는 TCP 레벨 HOL이 남아있음. HTTP/3(QUIC)은 스트림별로 독립적으로 패킷 손실을 처리해 하나의 스트림 손실이 다른 스트림에 영향 없음.
 
+- Q: QUIC의 0-RTT 재연결이란? 위험은?
+  A: 이전 세션에서 받은 Session Ticket(PSK)을 다음 연결의 첫 패킷에 데이터와 함께 전송해 핸드셰이크 없이 즉시 통신. 위험: Replay Attack — 공격자가 캡처한 0-RTT 패킷을 재전송하면 서버가 동일 요청을 중복 처리할 수 있음. 대응: 멱등성 있는 GET 요청에만 사용, POST/결제 등은 1-RTT 사용.
+
 - Q: QUIC의 Connection Migration이란?
-  A: TCP는 IP 주소 기반으로 연결을 식별해 WiFi→LTE 전환 시 연결이 끊김. QUIC은 Connection ID로 연결을 식별해 IP가 바뀌어도 연결이 유지됨. 모바일 환경에서 끊김 없는 통신 가능.
+  A: TCP는 (src IP, src Port, dst IP, dst Port) 4-tuple로 연결을 식별해 WiFi→LTE 전환 시 IP 변경으로 연결이 끊김. QUIC은 64bit Connection ID로 연결을 식별해 IP가 바뀌어도 연결이 유지됨. 모바일 환경에서 끊김 없는 통신 가능. 새 TLS+TCP 핸드셰이크 불필요.
+
+- Q: asyncio로 HTTP 요청을 동시에 보내면 HTTP/2 멀티플렉싱이 되는가?
+  A: 다르다. asyncio.gather로 여러 HTTP 요청을 보내면 각각 별도 TCP/TLS 연결을 맺어 I/O 대기를 겹치게 하는 것(동시성). HTTP/2 멀티플렉싱은 단일 TLS 연결 위에서 스트림으로 여러 요청을 처리. 실제 HTTP/2 멀티플렉싱을 쓰려면 httpx, aiohttp 같은 HTTP/2 지원 라이브러리 필요.
 
 ---
 
