@@ -3,18 +3,27 @@ from datetime import datetime, timedelta
 from fastapi import APIRouter, Depends
 from sqlalchemy.orm import Session as DBSession
 
+from ..auth.jwt_utils import get_current_user_id
 from ..db import get_db, QuestionAttempt, Session as SessionModel, QuestionCache
 
 router = APIRouter(prefix="/api/stats", tags=["stats"])
 
+
 @router.get("/")
-def get_stats(db: DBSession = Depends(get_db)):
-    # Radar chart: average score per part
+def get_stats(
+    user_id: str = Depends(get_current_user_id),
+    db: DBSession = Depends(get_db),
+):
+    # Radar: 파트별 평균 점수 (현재 유저)
     part_scores: dict[str, list[int]] = defaultdict(list)
 
-    attempts = db.query(QuestionAttempt, QuestionCache).join(
-        QuestionCache, QuestionAttempt.question_id == QuestionCache.question_id, isouter=True
-    ).all()
+    attempts = (
+        db.query(QuestionAttempt, QuestionCache)
+        .join(SessionModel, QuestionAttempt.session_id == SessionModel.id)
+        .join(QuestionCache, QuestionAttempt.question_id == QuestionCache.question_id, isouter=True)
+        .filter(SessionModel.user_id == user_id)
+        .all()
+    )
 
     for attempt, qc in attempts:
         if qc and attempt.score is not None:
@@ -26,11 +35,11 @@ def get_stats(db: DBSession = Depends(get_db)):
         if scores
     ]
 
-    # Trend chart: weekly average score over last 8 weeks
+    # Trend: 최근 8주 주별 평균 (현재 유저)
     eight_weeks_ago = datetime.utcnow() - timedelta(weeks=8)
     recent_sessions = (
         db.query(SessionModel)
-        .filter(SessionModel.created_at >= eight_weeks_ago)
+        .filter(SessionModel.user_id == user_id, SessionModel.created_at >= eight_weeks_ago)
         .order_by(SessionModel.created_at)
         .all()
     )

@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import axios from 'axios'
+import api from '../lib/api'
 
 interface Note {
   id: number; question_id: string; topic: string;
@@ -9,11 +9,11 @@ interface Note {
 export default function Notes() {
   const [notes, setNotes] = useState<Note[]>([])
 
-  const load = () => axios.get('/api/notes/').then(r => setNotes(r.data))
+  const load = () => api.get('/api/notes/').then(r => setNotes(r.data))
   useEffect(() => { load() }, [])
 
   const deleteNote = async (id: number) => {
-    await axios.delete(`/api/notes/${id}`)
+    await api.delete(`/api/notes/${id}`)
     setNotes(notes.filter(n => n.id !== id))
   }
 

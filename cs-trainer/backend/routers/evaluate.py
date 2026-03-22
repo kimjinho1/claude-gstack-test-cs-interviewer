@@ -4,12 +4,14 @@ from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
 from sqlalchemy.orm import Session as DBSession
 
-from ..db import get_db, QuestionAttempt, WeakTopic
+from ..auth.jwt_utils import get_current_user_id
+from ..db import get_db, QuestionAttempt, WeakTopic, Session as SessionModel
 from ..ai_provider import AIProvider
 from ..sm2 import sm2_update
 
 router = APIRouter(prefix="/api", tags=["evaluate"])
 _ai = AIProvider()
+
 
 class EvaluateRequest(BaseModel):
     session_id: str
@@ -18,23 +20,41 @@ class EvaluateRequest(BaseModel):
     transcript: str
     follow_up_count: int = 0
 
+
 class EvaluateResponse(BaseModel):
     score: int
     feedback: str
     missed_points: list[str]
     follow_up_question: str | None = None
 
+
 @router.post("/evaluate", response_model=EvaluateResponse)
-async def evaluate(req: EvaluateRequest, db: DBSession = Depends(get_db)):
+async def evaluate(
+    req: EvaluateRequest,
+    user_id: str = Depends(get_current_user_id),
+    db: DBSession = Depends(get_db),
+):
+    # 세션이 현재 유저 소유인지 확인
+    session = db.query(SessionModel).filter(
+        SessionModel.id == req.session_id,
+        SessionModel.user_id == user_id,
+    ).first()
+    if not session:
+        raise HTTPException(status_code=404, detail="Session not found")
+
     try:
         result = await _ai.evaluate(req.question_text, req.transcript)
     except Exception as e:
         raise HTTPException(status_code=503, detail={"error": "AI evaluation failed", "message": str(e)})
 
-    # Get latest SM-2 state for this question
+    # 이 유저의 이전 SM-2 상태 조회
     prev = (
         db.query(QuestionAttempt)
-        .filter(QuestionAttempt.question_id == req.question_id)
+        .join(SessionModel, QuestionAttempt.session_id == SessionModel.id)
+        .filter(
+            QuestionAttempt.question_id == req.question_id,
+            SessionModel.user_id == user_id,
+        )
         .order_by(QuestionAttempt.id.desc())
         .first()
     )
@@ -59,9 +79,12 @@ async def evaluate(req: EvaluateRequest, db: DBSession = Depends(get_db)):
     )
     db.add(attempt)
 
-    # Update weak topics if score < 7
+    # 약점 노트 업데이트 (user_id 포함)
     if result.score < 7:
-        existing = db.query(WeakTopic).filter(WeakTopic.question_id == req.question_id).first()
+        existing = db.query(WeakTopic).filter(
+            WeakTopic.question_id == req.question_id,
+            WeakTopic.user_id == user_id,
+        ).first()
         if existing:
             existing.last_score = result.score
             existing.missed_points = json.dumps(result.missed_points)
@@ -69,6 +92,7 @@ async def evaluate(req: EvaluateRequest, db: DBSession = Depends(get_db)):
             existing.updated_at = datetime.utcnow()
         else:
             db.add(WeakTopic(
+                user_id=user_id,
                 question_id=req.question_id,
                 topic=req.question_id.split(":")[0],
                 file_ref="",
@@ -76,12 +100,13 @@ async def evaluate(req: EvaluateRequest, db: DBSession = Depends(get_db)):
                 last_score=result.score,
             ))
     else:
-        # Remove from weak topics if score >= 7
-        db.query(WeakTopic).filter(WeakTopic.question_id == req.question_id).delete()
+        db.query(WeakTopic).filter(
+            WeakTopic.question_id == req.question_id,
+            WeakTopic.user_id == user_id,
+        ).delete()
 
     db.commit()
 
-    # Generate follow-up if score < 7 and follow_up_count < 2
     follow_up = None
     if result.score < 7 and req.follow_up_count < 2:
         try:

@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import axios from 'axios'
+import api from '../lib/api'
 import RadarChart from '../components/RadarChart'
 import TrendChart from '../components/TrendChart'
 
@@ -13,8 +13,8 @@ export default function History() {
   const [stats, setStats] = useState<{ radar: { part: string; avg_score: number }[]; trend: { week: string; avg_score: number }[] }>({ radar: [], trend: [] })
 
   useEffect(() => {
-    axios.get('/api/history/').then(r => setSessions(r.data))
-    axios.get('/api/stats/').then(r => setStats(r.data))
+    api.get('/api/history/').then(r => setSessions(r.data))
+    api.get('/api/stats/').then(r => setStats(r.data))
   }, [])
 
   return (

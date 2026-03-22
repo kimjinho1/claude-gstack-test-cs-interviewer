@@ -1,0 +1,31 @@
+{
+  "date": "2026-03-23",
+  "url": "http://localhost:5175",
+  "healthScore": 91,
+  "issues": [
+    {
+      "id": "ISSUE-001",
+      "title": "Web Speech API not available in headless browser",
+      "severity": "medium",
+      "category": "functional",
+      "status": "deferred"
+    },
+    {
+      "id": "ISSUE-002",
+      "title": "No keyboard-only fallback for voice input",
+      "severity": "low",
+      "category": "accessibility",
+      "status": "deferred"
+    }
+  ],
+  "categoryScores": {
+    "console": 100,
+    "links": 100,
+    "functional": 85,
+    "visual": 95,
+    "ux": 90,
+    "performance": 90,
+    "content": 100,
+    "accessibility": 80
+  }
+}

@@ -4,16 +4,27 @@ from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
 from sqlalchemy.orm import Session as DBSession
 
+from ..auth.jwt_utils import get_current_user_id
 from ..db import get_db, WeakTopic
 
 router = APIRouter(prefix="/api/notes", tags=["notes"])
 
+
 class NoteUpdate(BaseModel):
     missed_points: list[str] | None = None
 
+
 @router.get("/")
-def get_notes(db: DBSession = Depends(get_db)):
-    notes = db.query(WeakTopic).order_by(WeakTopic.updated_at.desc()).all()
+def get_notes(
+    user_id: str = Depends(get_current_user_id),
+    db: DBSession = Depends(get_db),
+):
+    notes = (
+        db.query(WeakTopic)
+        .filter(WeakTopic.user_id == user_id)
+        .order_by(WeakTopic.updated_at.desc())
+        .all()
+    )
     return [
         {
             "id": n.id,
@@ -27,9 +38,14 @@ def get_notes(db: DBSession = Depends(get_db)):
         for n in notes
     ]
 
+
 @router.delete("/{note_id}")
-def delete_note(note_id: int, db: DBSession = Depends(get_db)):
-    note = db.query(WeakTopic).filter(WeakTopic.id == note_id).first()
+def delete_note(
+    note_id: int,
+    user_id: str = Depends(get_current_user_id),
+    db: DBSession = Depends(get_db),
+):
+    note = db.query(WeakTopic).filter(WeakTopic.id == note_id, WeakTopic.user_id == user_id).first()
     if not note:
         raise HTTPException(status_code=404, detail="Note not found")
     db.delete(note)

@@ -1,10 +1,12 @@
-import { Routes, Route, Link, useLocation } from 'react-router-dom'
+import { Routes, Route, Link, useLocation, Navigate } from 'react-router-dom'
+import { AuthProvider, useAuth } from './context/AuthContext'
 import Home from './pages/Home'
 import Interview from './pages/Interview'
 import Quiz from './pages/Quiz'
 import Mock from './pages/Mock'
 import History from './pages/History'
 import Notes from './pages/Notes'
+import Login from './pages/Login'
 
 const navLinks = [
   { to: '/', label: '홈' },
@@ -15,8 +17,17 @@ const navLinks = [
   { to: '/notes', label: '약점 노트' },
 ]
 
-export default function App() {
+function ProtectedRoute({ children }: { children: React.ReactNode }) {
+  const { user, loading } = useAuth()
+  if (loading) return <div className="flex items-center justify-center h-screen text-gray-400">로딩 중...</div>
+  if (!user) return <Navigate to="/login" replace />
+  return <>{children}</>
+}
+
+function AppLayout() {
   const { pathname } = useLocation()
+  const { user, logout } = useAuth()
+
   return (
     <div className="min-h-screen flex flex-col">
       <nav className="bg-gray-900 border-b border-gray-800 px-6 py-3 flex gap-6 items-center">
@@ -32,17 +43,40 @@ export default function App() {
             {label}
           </Link>
         ))}
+        {user && (
+          <div className="ml-auto flex items-center gap-3">
+            {user.avatar_url && (
+              <img src={user.avatar_url} alt={user.name ?? ''} className="w-7 h-7 rounded-full" />
+            )}
+            <span className="text-sm text-gray-300">{user.name}</span>
+            <button
+              onClick={logout}
+              className="text-xs text-gray-500 hover:text-gray-300 transition-colors"
+            >
+              로그아웃
+            </button>
+          </div>
+        )}
       </nav>
       <main className="flex-1 p-6 max-w-4xl mx-auto w-full">
         <Routes>
-          <Route path="/" element={<Home />} />
-          <Route path="/interview" element={<Interview />} />
-          <Route path="/quiz" element={<Quiz />} />
-          <Route path="/mock" element={<Mock />} />
-          <Route path="/history" element={<History />} />
-          <Route path="/notes" element={<Notes />} />
+          <Route path="/" element={<ProtectedRoute><Home /></ProtectedRoute>} />
+          <Route path="/interview" element={<ProtectedRoute><Interview /></ProtectedRoute>} />
+          <Route path="/quiz" element={<ProtectedRoute><Quiz /></ProtectedRoute>} />
+          <Route path="/mock" element={<ProtectedRoute><Mock /></ProtectedRoute>} />
+          <Route path="/history" element={<ProtectedRoute><History /></ProtectedRoute>} />
+          <Route path="/notes" element={<ProtectedRoute><Notes /></ProtectedRoute>} />
+          <Route path="/login" element={<Login />} />
         </Routes>
       </main>
     </div>
+  )
+}
+
+export default function App() {
+  return (
+    <AuthProvider>
+      <AppLayout />
+    </AuthProvider>
   )
 }

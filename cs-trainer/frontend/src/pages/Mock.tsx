@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
-import axios from 'axios'
+import api from '../lib/api'
 import { v4 as uuidv4 } from 'uuid'
 import QuestionCard from '../components/QuestionCard'
 import VoiceRecorder from '../components/VoiceRecorder'
@@ -25,12 +25,12 @@ export default function Mock() {
     const answered = results.filter(r => r.eval !== null)
     const avg = answered.length ? answered.reduce((s, r) => s + (r.eval?.score || 0), 0) / answered.length : 0
     const dur = Math.round((Date.now() - startTimeRef.current) / 1000)
-    await axios.post('/api/history/', { mode: 'mock', total_score: avg, duration_s: dur })
+    await api.post('/api/history/', { mode: 'mock', total_score: avg, duration_s: dur })
     setPhase('done')
   }
 
   const startMock = async () => {
-    const r = await axios.get('/api/questions/mock')
+    const r = await api.get('/api/questions/mock')
     setQuestions(r.data)
     setCurrent(0)
     setResults([])
@@ -52,7 +52,7 @@ export default function Mock() {
     const q = questions[current]
     setPhase('evaluating')
     try {
-      const { data } = await axios.post('/api/evaluate', {
+      const { data } = await api.post('/api/evaluate', {
         session_id: sessionId,
         question_id: q.question_id,
         question_text: q.question_text,

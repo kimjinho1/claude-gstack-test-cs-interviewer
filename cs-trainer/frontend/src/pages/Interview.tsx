@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import axios from 'axios'
+import api from '../lib/api'
 import { v4 as uuidv4 } from 'uuid'
 import QuestionCard from '../components/QuestionCard'
 import VoiceRecorder from '../components/VoiceRecorder'
@@ -22,11 +22,11 @@ export default function Interview() {
   const [error, setError] = useState<string | null>(null)
 
   useEffect(() => {
-    axios.get('/api/questions/parts').then(r => setParts(r.data))
+    api.get('/api/questions/parts').then(r => setParts(r.data))
   }, [])
 
   const loadQuestions = async (part: string) => {
-    const r = await axios.get('/api/questions/', { params: { part } })
+    const r = await api.get('/api/questions/', { params: { part } })
     setQuestions(r.data)
     const q = r.data[Math.floor(Math.random() * r.data.length)]
     setCurrentQ(q)
@@ -42,7 +42,7 @@ export default function Interview() {
     setPhase('evaluating')
     setError(null)
     try {
-      const { data } = await axios.post('/api/evaluate', {
+      const { data } = await api.post('/api/evaluate', {
         session_id: sessionId,
         question_id: currentQ.question_id,
         question_text: currentQ.question_text,

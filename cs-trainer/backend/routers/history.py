@@ -1,12 +1,14 @@
 import uuid
 from datetime import datetime
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
 from sqlalchemy.orm import Session as DBSession
 
+from ..auth.jwt_utils import get_current_user_id
 from ..db import get_db, Session as SessionModel, QuestionAttempt
 
 router = APIRouter(prefix="/api/history", tags=["history"])
+
 
 class SessionCreate(BaseModel):
     mode: str
@@ -15,9 +17,19 @@ class SessionCreate(BaseModel):
     duration_s: int | None = None
     question_attempts: list[dict] = []
 
+
 @router.get("/")
-def get_history(db: DBSession = Depends(get_db)):
-    sessions = db.query(SessionModel).order_by(SessionModel.created_at.desc()).limit(50).all()
+def get_history(
+    user_id: str = Depends(get_current_user_id),
+    db: DBSession = Depends(get_db),
+):
+    sessions = (
+        db.query(SessionModel)
+        .filter(SessionModel.user_id == user_id)
+        .order_by(SessionModel.created_at.desc())
+        .limit(50)
+        .all()
+    )
     result = []
     for s in sessions:
         result.append({
@@ -40,11 +52,17 @@ def get_history(db: DBSession = Depends(get_db)):
         })
     return result
 
+
 @router.post("/")
-def create_session(body: SessionCreate, db: DBSession = Depends(get_db)):
+def create_session(
+    body: SessionCreate,
+    user_id: str = Depends(get_current_user_id),
+    db: DBSession = Depends(get_db),
+):
     session_id = str(uuid.uuid4())
     session = SessionModel(
         id=session_id,
+        user_id=user_id,
         mode=body.mode,
         topic=body.topic,
         total_score=body.total_score,
@@ -55,11 +73,20 @@ def create_session(body: SessionCreate, db: DBSession = Depends(get_db)):
     db.commit()
     return {"id": session_id}
 
+
 @router.get("/{session_id}")
-def get_session(session_id: str, db: DBSession = Depends(get_db)):
-    session = db.query(SessionModel).filter(SessionModel.id == session_id).first()
+def get_session(
+    session_id: str,
+    user_id: str = Depends(get_current_user_id),
+    db: DBSession = Depends(get_db),
+):
+    session = (
+        db.query(SessionModel)
+        .filter(SessionModel.id == session_id, SessionModel.user_id == user_id)
+        .first()
+    )
     if not session:
-        return {"error": "Not found"}, 404
+        raise HTTPException(status_code=404, detail="Session not found")
     return {
         "id": session.id,
         "mode": session.mode,

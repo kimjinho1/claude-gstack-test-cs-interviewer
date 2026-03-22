@@ -1,26 +1,30 @@
-app = "cs-trainer-api"
-primary_region = "nrt"  # Tokyo — 한국에서 제일 가까운 리전
+# fly.toml app configuration file generated for cs-trainer-api on 2026-03-23T00:30:21+09:00
+#
+# See https://fly.io/docs/reference/configuration/ for information about how to use this file.
+#
+
+app = 'cs-trainer-api'
+primary_region = 'nrt'
 
 [build]
-  dockerfile = "cs-trainer/Dockerfile.backend"
-  # build context는 fly deploy 시 CS/ 루트에서 실행
+  dockerfile = 'cs-trainer/Dockerfile.backend'
 
 [env]
-  DOCS_PATH = "/app/docs"
-  DATABASE_URL = "sqlite:////app/storage/trainer.db"
+  DATABASE_URL = 'sqlite:////app/storage/trainer.db'
+  DOCS_PATH = '/app/docs'
+
+[[mounts]]
+  source = 'storage_data'
+  destination = '/app/storage'
 
 [http_service]
   internal_port = 8001
   force_https = true
-  auto_stop_machines = true
+  auto_stop_machines = 'stop'
   auto_start_machines = true
   min_machines_running = 0
 
 [[vm]]
-  memory = "512mb"
-  cpu_kind = "shared"
+  memory = '512mb'
   cpus = 1
-
-[[mounts]]
-  source = "storage_data"
-  destination = "/app/storage"
+  memory_mb = 512

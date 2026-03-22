@@ -4,7 +4,8 @@ from pathlib import Path
 from fastapi import APIRouter, Depends, Query
 from sqlalchemy.orm import Session as DBSession
 
-from ..db import get_db, QuestionCache, WeakTopic, QuestionAttempt
+from ..auth.jwt_utils import get_current_user_id
+from ..db import get_db, QuestionCache, WeakTopic, QuestionAttempt, Session as SessionModel
 from ..question_parser import parse_all_questions, needs_reparse
 
 router = APIRouter(prefix="/api/questions", tags=["questions"])
@@ -12,6 +13,7 @@ router = APIRouter(prefix="/api/questions", tags=["questions"])
 import os
 _default_docs = Path(__file__).parent.parent.parent.parent / "docs"
 DOCS_PATH = Path(os.getenv("DOCS_PATH", str(_default_docs)))
+
 
 def _ensure_cache(db: DBSession) -> list[QuestionCache]:
     cached = db.query(QuestionCache).all()
@@ -24,6 +26,7 @@ def _ensure_cache(db: DBSession) -> list[QuestionCache]:
         cached = db.query(QuestionCache).all()
     return cached
 
+
 @router.get("/")
 def get_questions(part: str | None = Query(None), db: DBSession = Depends(get_db)):
     cached = _ensure_cache(db)
@@ -31,19 +34,28 @@ def get_questions(part: str | None = Query(None), db: DBSession = Depends(get_db
         cached = [q for q in cached if q.part == part]
     return [{"question_id": q.question_id, "question_text": q.question_text, "part": q.part} for q in cached]
 
+
 @router.get("/parts")
 def get_parts(db: DBSession = Depends(get_db)):
     _ensure_cache(db)
     parts = db.query(QuestionCache.part).distinct().all()
     return sorted([p[0] for p in parts])
 
+
 @router.get("/review")
-def get_review_questions(db: DBSession = Depends(get_db)):
-    """SM-2 daily review: questions due today."""
+def get_review_questions(
+    user_id: str = Depends(get_current_user_id),
+    db: DBSession = Depends(get_db),
+):
+    """SM-2 오늘 복습 문제 (현재 유저)"""
     now = datetime.utcnow()
     due_attempts = (
         db.query(QuestionAttempt)
-        .filter(QuestionAttempt.next_review_at <= now)
+        .join(SessionModel, QuestionAttempt.session_id == SessionModel.id)
+        .filter(
+            SessionModel.user_id == user_id,
+            QuestionAttempt.next_review_at <= now,
+        )
         .order_by(QuestionAttempt.next_review_at)
         .limit(20)
         .all()
@@ -65,12 +77,19 @@ def get_review_questions(db: DBSession = Depends(get_db)):
             })
     return result
 
+
 @router.get("/mock")
-def get_mock_questions(db: DBSession = Depends(get_db)):
-    """8-10 mixed questions for mock interview. Weak topics prioritized."""
+def get_mock_questions(
+    user_id: str = Depends(get_current_user_id),
+    db: DBSession = Depends(get_db),
+):
+    """8-10문제 혼합 모의 면접. 약점 문제 우선 선택 (현재 유저)"""
     cached = _ensure_cache(db)
     parts = sorted(set(q.part for q in cached))
-    weak_ids = {wt.question_id for wt in db.query(WeakTopic).all()}
+    weak_ids = {
+        wt.question_id
+        for wt in db.query(WeakTopic).filter(WeakTopic.user_id == user_id).all()
+    }
 
     selected: list[QuestionCache] = []
     base_per_part = max(2, 10 // max(len(parts), 1))

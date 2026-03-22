@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import axios from 'axios'
+import api from '../lib/api'
 
 interface ReviewItem {
   question_id: string
@@ -15,7 +15,7 @@ export default function ReviewWidget() {
   const navigate = useNavigate()
 
   useEffect(() => {
-    axios.get('/api/questions/review').then(r => setItems(r.data)).catch(() => {})
+    api.get('/api/questions/review').then(r => setItems(r.data)).catch(() => {})
   }, [])
 
   if (items.length === 0)

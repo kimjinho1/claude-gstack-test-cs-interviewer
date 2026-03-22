@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import axios from 'axios'
+import api from '../lib/api'
 import { v4 as uuidv4 } from 'uuid'
 import QuestionCard from '../components/QuestionCard'
 import VoiceRecorder from '../components/VoiceRecorder'
@@ -18,10 +18,10 @@ export default function Quiz() {
   const [sessionId] = useState(() => uuidv4())
   const [error, setError] = useState<string | null>(null)
 
-  useEffect(() => { axios.get('/api/questions/parts').then(r => setParts(r.data)) }, [])
+  useEffect(() => { api.get('/api/questions/parts').then(r => setParts(r.data)) }, [])
 
   const startQuiz = async (part: string) => {
-    const r = await axios.get('/api/questions/', { params: { part } })
+    const r = await api.get('/api/questions/', { params: { part } })
     const shuffled = [...r.data].sort(() => Math.random() - 0.5).slice(0, 10)
     setQuestions(shuffled)
     setCurrent(0)
@@ -34,7 +34,7 @@ export default function Quiz() {
     setPhase('evaluating')
     setError(null)
     try {
-      const { data } = await axios.post('/api/evaluate', {
+      const { data } = await api.post('/api/evaluate', {
         session_id: sessionId,
         question_id: q.question_id,
         question_text: q.question_text,
@@ -52,7 +52,7 @@ export default function Quiz() {
   const next = async () => {
     if (current + 1 >= questions.length) {
       const avg = results.reduce((s, r) => s + r.eval.score, 0) / results.length
-      await axios.post('/api/history/', { mode: 'quiz', total_score: avg, duration_s: 0 })
+      await api.post('/api/history/', { mode: 'quiz', total_score: avg, duration_s: 0 })
       setPhase('done')
     } else {
       setCurrent(c => c + 1)
