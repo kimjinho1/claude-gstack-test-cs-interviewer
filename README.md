@@ -10,7 +10,7 @@ AI가 면접관이 되어 CS 지식을 평가하고, 부족한 부분을 추적�
 
 > **이 프로젝트의 코드는 단 한 줄도 내가 직접 짜지 않았다.**
 
-**Claude Code** (Anthropic의 AI 코딩 도구)가 모든 코드를 작성했다.
+**[Claude Code](https://claude.ai/code)** (Anthropic의 AI 코딩 도구)와 **[gstack](https://github.com/garrytan/gstack)** (Claude Code용 개발 워크플로우 툴킷)이 모든 코드를 작성했다.
 
 | 역할 | 담당 |
 |------|------|
