@@ -4,6 +4,8 @@ AI가 면접관이 되어 CS 지식을 평가하고, 부족한 부분을 추적�
 
 직접 만든 CS 학습 자료(`/docs`)를 기반으로 질문을 생성하고, 음성으로 대답하면 Claude가 실시간으로 채점한다.
 
+**배포:** [https://cs-pi-wine.vercel.app/](https://cs-pi-wine.vercel.app/)
+
 ---
 
 ## 개발 노트
