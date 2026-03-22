@@ -8,7 +8,10 @@ from ..db import get_db, QuestionCache, WeakTopic, QuestionAttempt
 from ..question_parser import parse_all_questions, needs_reparse
 
 router = APIRouter(prefix="/api/questions", tags=["questions"])
-DOCS_PATH = Path(__file__).parent.parent.parent.parent / "docs"
+
+import os
+_default_docs = Path(__file__).parent.parent.parent.parent / "docs"
+DOCS_PATH = Path(os.getenv("DOCS_PATH", str(_default_docs)))
 
 def _ensure_cache(db: DBSession) -> list[QuestionCache]:
     cached = db.query(QuestionCache).all()

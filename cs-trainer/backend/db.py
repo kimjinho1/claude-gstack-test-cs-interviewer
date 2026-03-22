@@ -2,7 +2,8 @@ from datetime import datetime
 from sqlalchemy import create_engine, Column, String, Integer, Float, DateTime, Text, ForeignKey, Index
 from sqlalchemy.orm import DeclarativeBase, relationship, sessionmaker
 
-DATABASE_URL = "sqlite:///./storage/trainer.db"
+import os
+DATABASE_URL = os.getenv("DATABASE_URL", "sqlite:///./storage/trainer.db")
 engine = create_engine(DATABASE_URL, connect_args={"check_same_thread": False})
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 
