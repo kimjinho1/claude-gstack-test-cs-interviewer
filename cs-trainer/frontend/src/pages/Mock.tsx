@@ -20,8 +20,6 @@ export default function Mock() {
   const [sessionId] = useState(() => uuidv4())
   const startTimeRef = useRef<number>(Date.now())
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null)
-  const [error, setError] = useState<string | null>(null)
-
   const finishMock = async () => {
     if (timerRef.current) clearInterval(timerRef.current)
     const answered = results.filter(r => r.eval !== null)
@@ -124,7 +122,6 @@ export default function Mock() {
         </div>
       </div>
       {questions[current] && <QuestionCard question={questions[current].question_text} questionId={questions[current].question_id} part={questions[current].part} onAutoSpeak />}
-      {error && <div className="bg-red-900/40 border border-red-700 rounded-lg p-4 text-red-300 text-sm">{error}</div>}
       {phase === 'running' && (
         <div className="space-y-3">
           <VoiceRecorder onSubmit={handleAnswer} />

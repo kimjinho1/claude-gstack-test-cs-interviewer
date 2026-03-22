@@ -1,5 +1,4 @@
 import { useEffect, useState } from 'react'
-import { useSearchParams } from 'react-router-dom'
 import axios from 'axios'
 import { v4 as uuidv4 } from 'uuid'
 import QuestionCard from '../components/QuestionCard'
@@ -12,7 +11,6 @@ interface EvalData { score: number; feedback: string; missed_points: string[]; f
 type Phase = 'select' | 'question' | 'evaluating' | 'result' | 'followup'
 
 export default function Interview() {
-  const [searchParams] = useSearchParams()
   const [parts, setParts] = useState<string[]>([])
   const [questions, setQuestions] = useState<Question[]>([])
   const [currentQ, setCurrentQ] = useState<Question | null>(null)

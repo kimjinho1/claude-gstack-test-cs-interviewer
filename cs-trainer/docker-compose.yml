@@ -10,8 +10,7 @@ services:
       - DOCS_PATH=/app/docs
       - DATABASE_URL=sqlite:////app/storage/trainer.db
     env_file:
-      - path: .env
-        required: false
+      - .env
     restart: unless-stopped
 
   frontend:
