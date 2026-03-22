@@ -20,7 +20,7 @@ AI가 면접관이 되어 CS 지식을 평가하고, 부족한 부분을 추적�
 | **백엔드 코드 전체** | **Claude Code** |
 | **프론트엔드 코드 전체** | **Claude Code** |
 | **Docker / Nginx / CI-CD 설정** | **Claude Code** |
-| **Fly.io + Vercel 배포 설정** | **Claude Code** |
+| **Fly.io + Vercel 배포 설정** | **Claude Code + 사람** |
 | **버그 수정 및 QA** | **Claude Code** |
 
 전체 구현 흐름:
