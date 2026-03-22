@@ -110,6 +110,16 @@ docker compose -f cs-trainer/docker-compose.yml build backend && docker compose 
 2. Root Directory: `cs-trainer/frontend`
 3. Framework: Vite → Deploy
 
+### 프론트엔드 재배포 (코드 수정 후)
+
+GitHub에 push하면 Vercel이 자동으로 감지해서 재배포함.
+
+```bash
+git add .
+git commit -m "feat: ..."
+git push
+```
+
 ---
 
 ## 프로젝트 구조
