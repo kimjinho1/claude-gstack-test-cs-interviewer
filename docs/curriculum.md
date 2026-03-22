@@ -16,7 +16,7 @@
 | 01-05 | TCP 3-way / 4-way Handshake | `01-05-tcp-handshake.md` | [x] |
 | 01-06 | DNS 동작 원리 | `01-06-dns.md` | [x] |
 | 01-07 | HTTP vs HTTPS | `01-07-http-https.md` | [x] |
-| 01-08 | HTTP/1.1 vs HTTP/2 vs HTTP/3 | `01-08-http-versions.md` | [ ] |
+| 01-08 | HTTP/1.1 vs HTTP/2 vs HTTP/3 | `01-08-http-versions.md` | [x] |
 | 01-09 | 쿠키 / 세션 / JWT | `01-09-cookie-session-jwt.md` | [ ] |
 | 01-10 | REST API 설계 원칙 | `01-10-rest-api.md` | [ ] |
 | 01-11 | 웹소켓 vs HTTP | `01-11-websocket.md` | [ ] |
