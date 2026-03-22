@@ -24,6 +24,7 @@
 | 01-13 | 로드 밸런싱 | `01-13-load-balancing.md` | [x] |
 | 01-14 | CDN | `01-14-cdn.md` | [x] |
 | 01-15 | 방화벽 / 프록시 / NAT | `01-15-firewall-proxy-nat.md` | [x] |
+| 01-16 | VIP / SSE | `01-16-vip-sse.md` | [x] |
 
 ---
 
