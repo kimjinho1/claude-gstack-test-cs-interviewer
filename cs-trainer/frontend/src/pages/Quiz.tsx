@@ -1,6 +1,5 @@
 import { useEffect, useState } from 'react'
 import api from '../lib/api'
-import { v4 as uuidv4 } from 'uuid'
 import QuestionCard from '../components/QuestionCard'
 import VoiceRecorder from '../components/VoiceRecorder'
 import EvalResult from '../components/EvalResult'
@@ -15,13 +14,17 @@ export default function Quiz() {
   const [current, setCurrent] = useState(0)
   const [results, setResults] = useState<{ question: Question; eval: EvalData }[]>([])
   const [phase, setPhase] = useState<'select' | 'quiz' | 'evaluating' | 'result' | 'done'>('select')
-  const [sessionId] = useState(() => uuidv4())
+  const [sessionId, setSessionId] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
 
   useEffect(() => { api.get('/api/questions/parts').then(r => setParts(r.data)) }, [])
 
   const startQuiz = async (part: string) => {
-    const r = await api.get('/api/questions/', { params: { part } })
+    const [r, sessionRes] = await Promise.all([
+      api.get('/api/questions/', { params: { part } }),
+      api.post('/api/history/', { mode: 'quiz', topic: part }),
+    ])
+    setSessionId(sessionRes.data.id)
     const shuffled = [...r.data].sort(() => Math.random() - 0.5).slice(0, 10)
     setQuestions(shuffled)
     setCurrent(0)
@@ -52,7 +55,7 @@ export default function Quiz() {
   const next = async () => {
     if (current + 1 >= questions.length) {
       const avg = results.reduce((s, r) => s + r.eval.score, 0) / results.length
-      await api.post('/api/history/', { mode: 'quiz', total_score: avg, duration_s: 0 })
+      if (sessionId) await api.patch(`/api/history/${sessionId}`, { total_score: avg })
       setPhase('done')
     } else {
       setCurrent(c => c + 1)

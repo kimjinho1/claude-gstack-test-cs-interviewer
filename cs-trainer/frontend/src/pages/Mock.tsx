@@ -1,6 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
 import api from '../lib/api'
-import { v4 as uuidv4 } from 'uuid'
 import QuestionCard from '../components/QuestionCard'
 import VoiceRecorder from '../components/VoiceRecorder'
 import EvalResult from '../components/EvalResult'
@@ -17,7 +16,7 @@ export default function Mock() {
   const [current, setCurrent] = useState(0)
   const [results, setResults] = useState<{ question: Question; eval: EvalData | null }[]>([])
   const [timeLeft, setTimeLeft] = useState(MOCK_DURATION)
-  const [sessionId] = useState(() => uuidv4())
+  const [sessionId, setSessionId] = useState<string | null>(null)
   const startTimeRef = useRef<number>(Date.now())
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null)
   const finishMock = async () => {
@@ -25,12 +24,16 @@ export default function Mock() {
     const answered = results.filter(r => r.eval !== null)
     const avg = answered.length ? answered.reduce((s, r) => s + (r.eval?.score || 0), 0) / answered.length : 0
     const dur = Math.round((Date.now() - startTimeRef.current) / 1000)
-    await api.post('/api/history/', { mode: 'mock', total_score: avg, duration_s: dur })
+    if (sessionId) await api.patch(`/api/history/${sessionId}`, { total_score: avg, duration_s: dur })
     setPhase('done')
   }
 
   const startMock = async () => {
-    const r = await api.get('/api/questions/mock')
+    const [r, sessionRes] = await Promise.all([
+      api.get('/api/questions/mock'),
+      api.post('/api/history/', { mode: 'mock' }),
+    ])
+    setSessionId(sessionRes.data.id)
     setQuestions(r.data)
     setCurrent(0)
     setResults([])

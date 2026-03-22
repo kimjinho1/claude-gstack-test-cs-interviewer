@@ -1,6 +1,5 @@
 import { useEffect, useState } from 'react'
 import api from '../lib/api'
-import { v4 as uuidv4 } from 'uuid'
 import QuestionCard from '../components/QuestionCard'
 import VoiceRecorder from '../components/VoiceRecorder'
 import EvalResult from '../components/EvalResult'
@@ -18,7 +17,7 @@ export default function Interview() {
   const [evalData, setEvalData] = useState<EvalData | null>(null)
   const [followUpQuestion, setFollowUpQuestion] = useState<string | null>(null)
   const [followUpCount, setFollowUpCount] = useState(0)
-  const [sessionId] = useState(() => uuidv4())
+  const [sessionId, setSessionId] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
 
   useEffect(() => {
@@ -26,7 +25,11 @@ export default function Interview() {
   }, [])
 
   const loadQuestions = async (part: string) => {
-    const r = await api.get('/api/questions/', { params: { part } })
+    const [r, sessionRes] = await Promise.all([
+      api.get('/api/questions/', { params: { part } }),
+      api.post('/api/history/', { mode: 'interview', topic: part }),
+    ])
+    setSessionId(sessionRes.data.id)
     setQuestions(r.data)
     const q = r.data[Math.floor(Math.random() * r.data.length)]
     setCurrentQ(q)

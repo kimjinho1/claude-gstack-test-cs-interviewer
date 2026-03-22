@@ -74,6 +74,32 @@ def create_session(
     return {"id": session_id}
 
 
+class SessionUpdate(BaseModel):
+    total_score: float | None = None
+    duration_s: int | None = None
+
+
+@router.patch("/{session_id}")
+def update_session(
+    session_id: str,
+    body: SessionUpdate,
+    user_id: str = Depends(get_current_user_id),
+    db: DBSession = Depends(get_db),
+):
+    session = db.query(SessionModel).filter(
+        SessionModel.id == session_id,
+        SessionModel.user_id == user_id,
+    ).first()
+    if not session:
+        raise HTTPException(status_code=404, detail="Session not found")
+    if body.total_score is not None:
+        session.total_score = body.total_score
+    if body.duration_s is not None:
+        session.duration_s = body.duration_s
+    db.commit()
+    return {"id": session_id}
+
+
 @router.get("/{session_id}")
 def get_session(
     session_id: str,
