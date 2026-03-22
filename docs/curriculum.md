@@ -70,17 +70,17 @@
 
 | 번호 | 주제 | 파일명 | 진행 |
 |------|------|--------|------|
-| 04-01 | RDBMS vs NoSQL | `04-01-rdbms-nosql.md` | [ ] |
-| 04-02 | 트랜잭션 / ACID | `04-02-transaction-acid.md` | [ ] |
-| 04-03 | 조인 (Inner, Outer, Cross, Self) | `04-03-join.md` | [ ] |
-| 04-04 | 정규화 / 역정규화 | `04-04-normalization.md` | [ ] |
-| 04-05 | 인덱스 (B-Tree, 클러스터/논클러스터) | `04-05-index.md` | [ ] |
-| 04-06 | 격리 수준 (Isolation Level) | `04-06-isolation-level.md` | [ ] |
-| 04-07 | 락 (공유락, 배타락, 데드락) | `04-07-lock.md` | [ ] |
-| 04-08 | 실행 계획 / 쿼리 최적화 | `04-08-query-optimization.md` | [ ] |
-| 04-09 | Redis (캐시 전략, 자료구조) | `04-09-redis.md` | [ ] |
-| 04-10 | 파티셔닝 / 샤딩 / 레플리케이션 | `04-10-partitioning-sharding.md` | [ ] |
-| 04-11 | ORM N+1 문제 | `04-11-orm-n+1.md` | [ ] |
+| 04-01 | RDBMS vs NoSQL | `04-01-rdbms-nosql.md` | [x] |
+| 04-02 | 트랜잭션 / ACID | `04-02-transaction-acid.md` | [x] |
+| 04-03 | 조인 (Inner, Outer, Cross, Self) | `04-03-join.md` | [x] |
+| 04-04 | 정규화 / 역정규화 | `04-04-normalization.md` | [x] |
+| 04-05 | 인덱스 (B-Tree, 클러스터/논클러스터) | `04-05-index.md` | [x] |
+| 04-06 | 격리 수준 (Isolation Level) | `04-06-isolation-level.md` | [x] |
+| 04-07 | 락 (공유락, 배타락, 데드락) | `04-07-lock.md` | [x] |
+| 04-08 | 실행 계획 / 쿼리 최적화 | `04-08-query-optimization.md` | [x] |
+| 04-09 | Redis (캐시 전략, 자료구조) | `04-09-redis.md` | [x] |
+| 04-10 | 파티셔닝 / 샤딩 / 레플리케이션 | `04-10-partitioning-sharding.md` | [x] |
+| 04-11 | ORM N+1 문제 | `04-11-orm-n+1.md` | [x] |
 
 ---
 
