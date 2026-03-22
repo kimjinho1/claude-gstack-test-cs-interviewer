@@ -80,6 +80,33 @@ New ──fork()──▶ Ready ◀──────────── Running
                                             Terminated
 ```
 
+### Zombie / Orphan 프로세스
+
+```
+정상 종료:
+  부모(parent)가 자식(child) 종료를 wait()로 회수 → 깨끗하게 제거
+
+Zombie 프로세스:
+  자식은 종료됐지만 부모가 wait()를 호출하지 않은 상태
+  → PID, 종료 코드 등 PCB 최소 정보만 커널에 남아있음
+  → ps에서 "Z" (defunct) 상태
+  → 메모리는 해제됐지만 PID 테이블 점유
+  → 대량 발생 시 PID 소진 → fork() 실패
+
+Orphan 프로세스:
+  부모가 먼저 종료된 자식 프로세스
+  → Linux: init(PID=1) 또는 systemd가 양부모로 자동 입양
+  → 입양 후 init이 wait()를 호출해 정상 회수
+
+```
+```
+예시: snmpd 데몬이 trap 전송 자식 프로세스를 fork() 후
+      wait()를 빠뜨리면 trap 프로세스가 좀비로 누적됨
+
+해결: waitpid(-1, WNOHANG) 주기적 호출
+     또는 signal(SIGCHLD, SIG_IGN) — SIGCHLD 무시하면 커널이 자동 회수
+```
+
 ### 프로세스 간 통신 (IPC)
 
 프로세스는 메모리가 분리되어 있어 직접 데이터를 공유할 수 없음. IPC 필요.
@@ -216,6 +243,114 @@ print(f"  상태:   {proc.status()}")
 print(f"  스레드: {proc.num_threads()}개")
 print(f"  메모리: {proc.memory_info().rss / 1024 / 1024:.1f} MB")
 print(f"  CPU:    {proc.cpu_percent()}%")
+
+
+# ── IPC: Pipe (단방향, 부모↔자식) ───────────────────────
+
+def pipe_demo():
+    """
+    os.pipe() → 커널 버퍼를 공유하는 단방향 채널
+    부모가 write fd, 자식이 read fd 사용
+    """
+    r_fd, w_fd = os.pipe()  # (read_fd, write_fd)
+    pid = os.fork()
+
+    if pid == 0:
+        # 자식 프로세스
+        os.close(w_fd)
+        data = os.read(r_fd, 1024).decode()
+        print(f"  [자식 PID={os.getpid()}] 수신: {data!r}")
+        os.close(r_fd)
+        os._exit(0)
+    else:
+        # 부모 프로세스
+        os.close(r_fd)
+        msg = b"SNMP Trap: link-down port Gi0/1"
+        os.write(w_fd, msg)
+        os.close(w_fd)
+        os.waitpid(pid, 0)   # 좀비 방지: 자식 종료 회수
+
+
+# ── IPC: Shared Memory (가장 빠른 IPC) ──────────────────
+
+from multiprocessing import shared_memory
+import struct
+
+def shared_memory_demo():
+    """
+    공유 메모리: 커널을 거치지 않고 물리 메모리 직접 공유
+    동기화는 Lock/Semaphore로 별도 관리 필요
+    """
+    # 부모: 공유 메모리 생성 (포트 카운터 8개 × 4바이트)
+    shm = shared_memory.SharedMemory(create=True, size=8 * 4)
+    port_counters = shm.buf  # memoryview
+
+    def child_update(shm_name: str, port: int, count: int):
+        """자식: 공유 메모리에 카운터 업데이트"""
+        shm_child = shared_memory.SharedMemory(name=shm_name)
+        offset = port * 4
+        current = struct.unpack_from("I", shm_child.buf, offset)[0]
+        struct.pack_into("I", shm_child.buf, offset, current + count)
+        shm_child.close()
+
+    # 자식 프로세스들이 각 포트 카운터 업데이트
+    procs = []
+    for port in range(4):
+        p = multiprocessing.Process(
+            target=child_update, args=(shm.name, port, 100)
+        )
+        p.start()
+        procs.append(p)
+
+    for p in procs:
+        p.join()
+
+    print("  [공유 메모리] 포트별 패킷 카운터:")
+    for port in range(4):
+        val = struct.unpack_from("I", shm.buf, port * 4)[0]
+        print(f"    Port {port}: {val}")
+
+    shm.close()
+    shm.unlink()   # 공유 메모리 삭제
+
+
+# ── Zombie 프로세스 시연 ─────────────────────────────────
+
+def zombie_demo():
+    """
+    부모가 wait()를 호출하지 않으면 자식이 좀비로 남음
+    실제로는 짧은 시간 동안만 좀비 상태로 확인 가능
+    """
+    import subprocess, time
+
+    pid = os.fork()
+    if pid == 0:
+        # 자식: 즉시 종료
+        os._exit(0)
+    else:
+        # 부모: 잠시 wait() 안 함 → 자식 좀비
+        time.sleep(0.1)
+        result = subprocess.run(
+            ["ps", "-p", str(pid), "-o", "pid,stat,comm"],
+            capture_output=True, text=True
+        )
+        lines = result.stdout.strip().splitlines()
+        status = "좀비(Z)" if any("Z" in l for l in lines) else "이미 회수됨"
+        print(f"  자식 PID={pid} 상태: {status}")
+        os.waitpid(pid, 0)  # 이제 회수
+        print(f"  waitpid() 호출 후 → 좀비 해제")
+
+
+print("\n=== IPC Pipe 데모 ===")
+if os.name == 'posix':
+    pipe_demo()
+
+print("\n=== IPC 공유 메모리 ===")
+shared_memory_demo()
+
+print("\n=== Zombie 프로세스 ===")
+if os.name == 'posix':
+    zombie_demo()
 ```
 
 ---
@@ -233,6 +368,15 @@ print(f"  CPU:    {proc.cpu_percent()}%")
 
 - Q: 프로세스가 스레드보다 유리한 경우는?
   A: 장애 격리가 중요할 때. 스위치 데몬들처럼 각 기능을 독립 프로세스로 분리하면 하나가 크래시해도 다른 기능은 영향 없음. Chrome 탭마다 별도 프로세스를 쓰는 것도 같은 이유.
+
+- Q: Zombie 프로세스란? 어떻게 해결하나?
+  A: 자식 프로세스가 종료됐지만 부모가 wait()로 회수하지 않은 상태. PCB 최소 정보(PID, 종료 코드)가 커널에 남아 PID를 점유. 대량 발생 시 PID 고갈로 fork() 실패. 해결: 부모가 waitpid()를 호출하거나, signal(SIGCHLD, SIG_IGN)으로 커널이 자동 회수하도록 설정.
+
+- Q: Orphan 프로세스와 Zombie의 차이는?
+  A: Orphan은 부모가 먼저 죽어 고아가 된 자식. Linux에서 init(PID=1)/systemd가 입양해 나중에 wait()로 정상 회수 → 문제없음. Zombie는 자식이 죽었는데 부모가 회수 안 한 상태 → PID 자원 누수. Orphan은 자동 해결, Zombie는 프로그래밍으로 방지해야 함.
+
+- Q: IPC 방식 중 Pipe vs Shared Memory 차이는?
+  A: Pipe는 커널 버퍼를 통한 단방향 통신 — 단순하지만 매번 커널 복사 발생 (read/write 시스템 콜). Shared Memory는 물리 메모리를 직접 공유 — 커널 복사 없어 가장 빠름. 단, Pipe는 동기화가 자동(데이터 없으면 read 블록), Shared Memory는 별도 뮤텍스/세마포어로 동기화 직접 구현 필요.
 
 ---
 

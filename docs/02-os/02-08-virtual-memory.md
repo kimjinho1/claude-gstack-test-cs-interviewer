@@ -313,7 +313,92 @@ for CacheClass in [LRUCache, FIFOCache, ClockCache]:
 - Q: Thrashing이란? 어떻게 방지하나?
   A: 프로세스가 많아 각 프로세스의 워킹 셋(실제 필요 페이지)이 RAM에 다 올라오지 못해 페이지 폴트가 연속 발생, CPU가 스왑 I/O만 하는 상태. 방지: 실행 프로세스 수 줄이기, RAM 증설, Working Set 모델로 각 프로세스 최소 프레임 보장.
 
+- Q: OOM Killer란? 어떻게 희생 프로세스를 선택하나?
+  A: Out Of Memory Killer. Linux에서 물리 RAM + 스왑이 모두 고갈됐을 때 커널이 프로세스를 강제 종료해 메모리를 회수하는 메커니즘. 각 프로세스에 oom_score(0~1000)를 계산 — 메모리 사용량 큰 것, 오래 실행된 것, root 프로세스 아닌 것 우선 종료. `/proc/<pid>/oom_score`로 확인. `/proc/<pid>/oom_score_adj`로 조정(-1000이면 절대 종료 안 함, +1000이면 우선 종료).
+
 ---
+
+## OOM Killer (Out Of Memory Killer)
+
+RAM + 스왑 모두 고갈 시 Linux 커널이 작동하는 최후 수단.
+
+```
+메모리 부족 흐름:
+  ① 프로세스가 malloc() → 가상 주소 반환 (실제 물리 할당 X — Lazy Allocation)
+  ② 실제 접근 시 페이지 폴트 → RAM 할당 시도
+  ③ RAM + 스왑 모두 없음 → OOM 상황
+  ④ OOM Killer 작동 → oom_score 높은 프로세스 kill -9
+
+oom_score 계산:
+  기본 점수 = 프로세스의 RAM + 스왑 사용량 (페이지 수)
+  × 1000 / 전체 메모리 (페이지 수)
+  → 0~1000 범위
+
+감점 요소:
+  - root 프로세스: 점수 낮춤
+  - 오래 실행된 프로세스: 점수 낮춤
+  - 자식 많은 프로세스: 자식까지 합산
+
+수동 확인:
+  $ cat /proc/$(pgrep snmpd)/oom_score      # 현재 점수
+  $ cat /proc/$(pgrep snmpd)/oom_score_adj  # 조정값
+
+oom_score_adj 설정:
+  -1000 : OOM Killer가 절대 종료 안 함 (중요 데몬에 설정)
+   0    : 기본값
+  +1000 : 메모리 부족 시 가장 먼저 종료
+
+실무 예:
+  echo -1000 > /proc/$(pgrep sshd)/oom_score_adj  # SSH 데몬 보호
+  # systemd: OOMPolicy=kill | continue | stop
+```
+
+```python
+import os, subprocess
+
+def check_oom_scores():
+    """현재 프로세스의 OOM 관련 정보 확인"""
+    pid = os.getpid()
+    print(f"[OOM 정보] PID={pid}")
+
+    # oom_score 읽기
+    try:
+        with open(f"/proc/{pid}/oom_score") as f:
+            score = f.read().strip()
+        with open(f"/proc/{pid}/oom_score_adj") as f:
+            adj = f.read().strip()
+        print(f"  oom_score={score}, oom_score_adj={adj}")
+        print(f"  (낮을수록 OOM Killer 대상에서 멀어짐)")
+    except FileNotFoundError:
+        print("  /proc not available (non-Linux)")
+
+    # 시스템 메모리 상태
+    result = subprocess.run(["free", "-h"], capture_output=True, text=True)
+    if result.returncode == 0:
+        print(f"\n  메모리 상태:\n{result.stdout}")
+
+    # top 프로세스 (oom_score 기준)
+    try:
+        procs = []
+        for p in os.listdir("/proc"):
+            if p.isdigit():
+                try:
+                    with open(f"/proc/{p}/oom_score") as f:
+                        s = int(f.read().strip())
+                    with open(f"/proc/{p}/comm") as f:
+                        name = f.read().strip()
+                    procs.append((s, p, name))
+                except (FileNotFoundError, PermissionError):
+                    pass
+        procs.sort(reverse=True)
+        print("  OOM 우선 종료 대상 (상위 5개):")
+        for score, pid, name in procs[:5]:
+            print(f"    PID={pid:6s} {name:20s} score={score}")
+    except (FileNotFoundError, PermissionError):
+        pass
+
+check_oom_scores()
+```
 
 ## 관련 개념
 

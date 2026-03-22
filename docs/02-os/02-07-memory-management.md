@@ -109,15 +109,49 @@ TLB 히트율: 보통 99% 이상
 - 장점: 논리적 단위로 보호/공유 (코드 세그먼트 공유), 내부 단편화 없음
 - 단점: **외부 단편화** (가변 크기로 메모리 구멍 발생)
 
-### 페이징 + 세그멘테이션 혼합
+### Linux x86-64 4단계 페이지 테이블
 
 실제 OS (Linux, Windows)는 **페이지드 세그멘테이션** 또는 주로 페이징 사용.
 
 ```
-Linux x86-64:
-  사실상 페이징만 사용 (세그먼트는 거의 무력화)
-  4단계 페이지 테이블 (PGD → PUD → PMD → PTE)
-  페이지 크기: 4KB (기본), 2MB/1GB (Huge Pages)
+왜 4단계인가?
+  64비트 주소 = 18 exabytes → 단일 페이지 테이블 시 메모리 수TB 필요
+  4단계 트리 구조 → 실제 사용 범위만 할당 (Sparse)
+
+가상 주소 구조 (x86-64, 48비트 유효 주소):
+  63    48 47    39 38    30 29    21 20    12 11     0
+  [sign  ] [ PGD  ] [ PUD  ] [ PMD  ] [ PTE  ] [offset]
+             9비트   9비트   9비트   9비트   12비트
+
+PGD (Page Global Directory)  — 1단계, CR3 레지스터가 가리킴
+PUD (Page Upper Directory)   — 2단계
+PMD (Page Middle Directory)  — 3단계
+PTE (Page Table Entry)       — 4단계, 실제 프레임 번호
+
+주소 변환 과정:
+  CR3 → PGD[47:39] → PUD[38:30] → PMD[29:21] → PTE[20:12] → Frame + Offset[11:0]
+  → 메모리 4번 접근 (TLB 미스 시)
+  → TLB 히트 시 CR3 + 오프셋만으로 1번
+
+예시: 0x0000_7fff_abcd_1234 접근
+  PGD index = (addr >> 39) & 0x1FF = 0xFF
+  PUD index = (addr >> 30) & 0x1FF = 0x1EA
+  PMD index = (addr >> 21) & 0x1FF = 0x15E
+  PTE index = (addr >> 12) & 0x1FF = 0x1CD
+  offset    = addr & 0xFFF = 0x234
+
+각 엔트리 크기: 8바이트 (64비트)
+각 테이블 크기: 512 × 8 = 4KB = 1 페이지
+```
+
+**Huge Pages** (성능 최적화):
+```
+4KB 페이지: TLB 엔트리 1개 = 4KB 커버
+2MB Huge Page: TLB 엔트리 1개 = 2MB 커버 (PMD가 직접 프레임 가리킴)
+1GB Huge Page: TLB 엔트리 1개 = 1GB 커버 (PUD가 직접 프레임 가리킴)
+
+→ TLB 엔트리 효율 512배/262144배 향상
+→ DB (PostgreSQL, Oracle), JVM에서 성능 향상 목적으로 Huge Pages 설정
 ```
 
 ### 단편화 (Fragmentation)
