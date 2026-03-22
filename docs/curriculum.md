@@ -48,21 +48,21 @@
 
 | 번호 | 주제 | 파일명 | 진행 |
 |------|------|--------|------|
-| 03-01 | 시간/공간 복잡도 (Big-O) | `03-01-big-o.md` | [ ] |
-| 03-02 | Array / LinkedList | `03-02-array-linkedlist.md` | [ ] |
-| 03-03 | Stack / Queue / Deque | `03-03-stack-queue-deque.md` | [ ] |
-| 03-04 | Hash Table (충돌, 해결 방법) | `03-04-hash-table.md` | [ ] |
-| 03-05 | 정렬 (Quick, Merge, Heap, Counting) | `03-05-sorting.md` | [ ] |
-| 03-06 | 탐색 (BFS, DFS, 이진 탐색) | `03-06-search.md` | [ ] |
-| 03-07 | Tree (BST, AVL, Red-Black Tree) | `03-07-tree.md` | [ ] |
-| 03-08 | Heap / Priority Queue | `03-08-heap.md` | [ ] |
-| 03-09 | Graph (인접 행렬 vs 인접 리스트) | `03-09-graph.md` | [ ] |
-| 03-10 | Trie | `03-10-trie.md` | [ ] |
-| 03-11 | 동적 프로그래밍 (DP) | `03-11-dp.md` | [ ] |
-| 03-12 | 그리디 | `03-12-greedy.md` | [ ] |
-| 03-13 | 백트래킹 | `03-13-backtracking.md` | [ ] |
-| 03-14 | 최단 경로 (Dijkstra, Bellman-Ford, Floyd) | `03-14-shortest-path.md` | [ ] |
-| 03-15 | 최소 신장 트리 (Kruskal, Prim) | `03-15-mst.md` | [ ] |
+| 03-01 | 시간/공간 복잡도 (Big-O) | `03-01-big-o.md` | [x] |
+| 03-02 | Array / LinkedList | `03-02-array-linkedlist.md` | [x] |
+| 03-03 | Stack / Queue / Deque | `03-03-stack-queue-deque.md` | [x] |
+| 03-04 | Hash Table (충돌, 해결 방법) | `03-04-hash-table.md` | [x] |
+| 03-05 | 정렬 (Quick, Merge, Heap, Counting) | `03-05-sorting.md` | [x] |
+| 03-06 | 탐색 (BFS, DFS, 이진 탐색) | `03-06-search.md` | [x] |
+| 03-07 | Tree (BST, AVL, Red-Black Tree) | `03-07-tree.md` | [x] |
+| 03-08 | Heap / Priority Queue | `03-08-heap.md` | [x] |
+| 03-09 | Graph (인접 행렬 vs 인접 리스트) | `03-09-graph.md` | [x] |
+| 03-10 | Trie | `03-10-trie.md` | [x] |
+| 03-11 | 동적 프로그래밍 (DP) | `03-11-dp.md` | [x] |
+| 03-12 | 그리디 | `03-12-greedy.md` | [x] |
+| 03-13 | 백트래킹 | `03-13-backtracking.md` | [x] |
+| 03-14 | 최단 경로 (Dijkstra, Bellman-Ford, Floyd) | `03-14-shortest-path.md` | [x] |
+| 03-15 | 최소 신장 트리 (Kruskal, Prim) | `03-15-mst.md` | [x] |
 
 ---
 
