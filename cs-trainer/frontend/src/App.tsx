@@ -66,7 +66,6 @@ function AppLayout() {
           <Route path="/mock" element={<ProtectedRoute><Mock /></ProtectedRoute>} />
           <Route path="/history" element={<ProtectedRoute><History /></ProtectedRoute>} />
           <Route path="/notes" element={<ProtectedRoute><Notes /></ProtectedRoute>} />
-          <Route path="/login" element={<Login />} />
         </Routes>
       </main>
     </div>
@@ -76,7 +75,10 @@ function AppLayout() {
 export default function App() {
   return (
     <AuthProvider>
-      <AppLayout />
+      <Routes>
+        <Route path="/login" element={<Login />} />
+        <Route path="/*" element={<AppLayout />} />
+      </Routes>
     </AuthProvider>
   )
 }
