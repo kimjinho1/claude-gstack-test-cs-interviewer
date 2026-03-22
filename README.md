@@ -88,6 +88,19 @@ fly deploy --dockerfile cs-trainer/Dockerfile.backend
 fly secrets set KEY=value  # 머신 자동 재시작
 ```
 
+### 로컬 도커 재빌드 (코드 수정 후)
+
+```bash
+cd CS/  # 루트 디렉토리에서 실행
+
+# 이미지 재빌드 후 재시작
+docker compose -f cs-trainer/docker-compose.yml up -d --build
+
+# 특정 서비스만 재빌드
+docker compose -f cs-trainer/docker-compose.yml up -d --build backend
+docker compose -f cs-trainer/docker-compose.yml up -d --build frontend
+```
+
 ### 프론트엔드 (Vercel)
 
 1. [vercel.com](https://vercel.com) → New Project → GitHub 연동
