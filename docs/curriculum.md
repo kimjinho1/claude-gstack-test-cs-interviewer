@@ -12,7 +12,7 @@
 | 01-01 | OSI 7계층 / TCP-IP 4계층 | `01-01-osi-tcpip.md` | [x] |
 | 01-02 | VLAN / Trunk / Access Port | `01-02-vlan.md` | [x] |
 | 01-03 | ARP (IP→MAC 주소 변환) | `01-03-arp.md` | [x] |
-| 01-04 | TCP vs UDP | `01-04-tcp-udp.md` | [ ] |
+| 01-04 | TCP vs UDP | `01-04-tcp-udp.md` | [x] |
 | 01-05 | TCP 3-way / 4-way Handshake | `01-05-tcp-handshake.md` | [ ] |
 | 01-06 | DNS 동작 원리 | `01-06-dns.md` | [ ] |
 | 01-07 | HTTP vs HTTPS | `01-07-http-https.md` | [ ] |
