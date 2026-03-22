@@ -21,7 +21,7 @@ install:
 	pip install -r backend/requirements.txt
 
 backend:
-	uvicorn backend.main:app --reload --port 8000
+	uvicorn backend.main:app --reload --port 8001
 
 frontend:
 	cd frontend && npm run dev
