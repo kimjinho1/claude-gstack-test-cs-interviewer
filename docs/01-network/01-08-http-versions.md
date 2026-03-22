@@ -106,6 +106,132 @@ HTTP/2 데이터 단위: 프레임(Frame)
   스트림 0:       연결 전체 제어 메시지
 ```
 
+**멀티플렉싱이 가능한 이유 — Nginx로 이해하기**
+
+HTTP/1.1도 Keep-Alive로 연결을 재사용하는데, 왜 멀티플렉싱이 안 됐나?
+
+```
+HTTP/1.1의 근본 문제: 요청-응답이 텍스트 스트림 위에서 순서대로 흘러감
+
+클라이언트 → 서버:
+  "GET /style.css HTTP/1.1\r\nHost: ...\r\n\r\n"  ← 요청1 끝
+  "GET /script.js HTTP/1.1\r\nHost: ...\r\n\r\n"  ← 요청2 끝
+
+서버는 어디서 요청1이 끝나고 요청2가 시작되는지 알지만,
+응답은 반드시 순서대로 보내야 함:
+  응답1 완전히 끝 → 응답2 시작
+  응답 중간에 다른 응답 데이터를 끼워 넣을 방법이 없음
+  (텍스트 스트림에서 어디까지가 응답1인지 구분 불가)
+```
+
+HTTP/2는 **바이너리 프레임 + Stream ID** 로 이 문제를 해결:
+
+```
+프레임마다 Stream ID가 있으므로 인터리빙(끼워넣기)이 가능:
+
+TCP 소켓으로 흘러가는 바이트열:
+  [Stream1 HEADERS] [Stream3 HEADERS] [Stream1 DATA(1/3)]
+  [Stream5 HEADERS] [Stream3 DATA(1/2)] [Stream1 DATA(2/3)]
+  [Stream3 DATA(2/2)] [Stream1 DATA(3/3)] [Stream5 DATA]
+
+수신 측에서 Stream ID로 조립:
+  Stream1 → HEADERS + DATA 1/3 + DATA 2/3 + DATA 3/3 → 응답A 완성
+  Stream3 → HEADERS + DATA 1/2 + DATA 2/2           → 응답B 완성
+  Stream5 → HEADERS + DATA                           → 응답C 완성
+
+핵심: 큰 응답(DATA)을 잘게 쪼개서 다른 스트림의 작은 응답과 교차 전송.
+      응답A가 느려도 응답B, C의 프레임이 그 사이에 전송될 수 있음.
+```
+
+**Nginx가 HTTP/2 멀티플렉싱을 처리하는 방법**
+
+```
+# nginx.conf — HTTP/2 활성화
+server {
+    listen 443 ssl;
+    http2  on;           # Nginx 1.25.1+ (이전: listen 443 ssl http2)
+
+    ssl_certificate     /etc/ssl/certs/server.crt;
+    ssl_certificate_key /etc/ssl/private/server.key;
+
+    # TLS 세션 캐시: 클라이언트 재접속 시 핸드셰이크 생략
+    ssl_session_cache   shared:SSL:10m;
+    ssl_session_timeout 10m;
+
+    # HTTP/2 튜닝
+    http2_max_concurrent_streams 128;  # 하나의 연결당 최대 동시 스트림
+    http2_recv_buffer_size       256k;
+    keepalive_timeout            65;
+
+    location / {
+        proxy_pass http://backend;
+    }
+}
+```
+
+Nginx 내부에서 일어나는 일:
+
+```
+[클라이언트]              [Nginx worker 프로세스]         [백엔드]
+     │                          │                            │
+     │── TLS + h2 연결 ────────▶│                            │
+     │                          │  단일 소켓 fd               │
+     │── Stream1 HEADERS ──────▶│                            │
+     │── Stream3 HEADERS ──────▶│  프레임 수신 즉시 처리        │
+     │── Stream5 HEADERS ──────▶│  (이벤트 루프)              │
+     │                          │                            │
+     │                          │── HTTP/1.1 요청 ──────────▶│  (upstream은 대부분 HTTP/1.1)
+     │                          │── HTTP/1.1 요청 ──────────▶│
+     │                          │── HTTP/1.1 요청 ──────────▶│
+     │                          │                            │
+     │                          │◀── 응답 ───────────────────│
+     │◀── Stream5 DATA ─────────│  완료된 스트림부터 즉시 전송
+     │◀── Stream1 DATA(1/2)─────│  (느린 Stream3 기다리지 않음)
+     │◀── Stream3 DATA ─────────│
+     │◀── Stream1 DATA(2/2)─────│
+```
+
+왜 Nginx 워커 하나가 수천 개 연결을 처리할 수 있나:
+
+```
+Nginx 아키텍처: 비동기 이벤트 기반 (epoll/kqueue)
+
+전통적 Thread-per-Connection:
+  연결 1000개 → 스레드 1000개 → 메모리/컨텍스트 스위치 폭발
+
+Nginx 이벤트 루프:
+  while True:
+      events = epoll_wait(fd_list)  ← 데이터 있는 소켓만 알림
+      for event in events:
+          if event.type == READABLE:
+              read_http2_frame()        ← Stream ID 파싱
+              dispatch_to_stream()      ← 해당 스트림 처리
+          if event.type == WRITABLE:
+              send_pending_frames()     ← 버퍼에 있는 프레임 전송
+
+  → 하나의 스레드가 소켓 수만 개를 논블로킹으로 처리
+  → HTTP/2: 연결 1개당 128개 스트림 → 사실상 클라이언트당 단일 연결로 충분
+
+HTTP/1.1 연결 6개 vs HTTP/2 연결 1개 (128 스트림):
+  HTTP/1.1: Nginx 6개 fd, TLS 세션 6개, 메모리 6배
+  HTTP/2:   Nginx 1개 fd, TLS 세션 1개, 스트림은 메모리 경량
+```
+
+클라이언트-Nginx는 HTTP/2, Nginx-백엔드는 HTTP/1.1인 이유:
+
+```
+[브라우저] ─── HTTP/2 ──▶ [Nginx] ─── HTTP/1.1 ──▶ [Django/Flask/Node]
+
+백엔드로 HTTP/2를 쓰지 않는 이유:
+  - 내부망(loopback, VPC)은 패킷 손실이 거의 없어 HTTP/2 이점 적음
+  - 대부분의 백엔드 프레임워크가 HTTP/1.1 기반
+  - Nginx upstream HTTP/2 지원은 비교적 최근 (1.19.1+, 실험적)
+
+proxy_http_version 1.1;          # upstream은 HTTP/1.1
+proxy_set_header Connection "";  # upstream keepalive 재사용
+keepalive 32;                    # upstream 연결 풀
+```
+
 **주요 개선사항**
 
 | 기능 | 설명 |
