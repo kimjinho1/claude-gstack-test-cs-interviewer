@@ -18,7 +18,7 @@
 | 01-07 | HTTP vs HTTPS | `01-07-http-https.md` | [x] |
 | 01-08 | HTTP/1.1 vs HTTP/2 vs HTTP/3 | `01-08-http-versions.md` | [x] |
 | 01-09 | 쿠키 / 세션 / JWT | `01-09-cookie-session-jwt.md` | [x] |
-| 01-10 | REST API 설계 원칙 | `01-10-rest-api.md` | [ ] |
+| 01-10 | REST API 설계 원칙 | `01-10-rest-api.md` | [x] |
 | 01-11 | 웹소켓 vs HTTP | `01-11-websocket.md` | [ ] |
 | 01-12 | CORS | `01-12-cors.md` | [ ] |
 | 01-13 | 로드 밸런싱 | `01-13-load-balancing.md` | [ ] |
