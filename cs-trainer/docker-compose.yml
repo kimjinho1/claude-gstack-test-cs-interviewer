@@ -1,10 +1,9 @@
 services:
   backend:
     build:
-      context: .
-      dockerfile: Dockerfile.backend
+      context: ..
+      dockerfile: cs-trainer/Dockerfile.backend
     volumes:
-      - ../docs:/app/docs:ro
       - storage_data:/app/storage
     environment:
       - DOCS_PATH=/app/docs
