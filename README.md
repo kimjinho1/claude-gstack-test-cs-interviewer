@@ -35,6 +35,7 @@ AI가 면접관이 되어 CS 지식을 평가하고, 부족한 부분을 추적�
 ### 사전 준비
 - Docker Desktop
 - Anthropic API 키
+- Google OAuth 클라이언트 ID/시크릿 (위 [Google Cloud Console 설정](#google-cloud-console-설정-oauth-앱-생성) 참고)
 
 ### 실행
 
@@ -43,7 +44,12 @@ git clone https://github.com/kimjinho1/CS.git
 cd CS/cs-trainer
 
 # 환경변수 설정
-echo "ANTHROPIC_API_KEY=sk-xxx" > .env
+cat > .env << EOF
+ANTHROPIC_API_KEY=sk-xxx
+GOOGLE_CLIENT_ID=구글-클라이언트-ID
+GOOGLE_CLIENT_SECRET=구글-클라이언트-시크릿
+JWT_SECRET=local-dev-secret
+EOF
 
 # 빌드 및 실행 (CS/ 루트에서)
 cd ..
@@ -59,7 +65,22 @@ docker compose -f cs-trainer/docker-compose.yml up -d
 | 서비스 | 역할 | URL |
 |--------|------|-----|
 | Fly.io | FastAPI 백엔드 + SQLite | `cs-trainer-api.fly.dev` |
-| Vercel | React 프론트엔드 | `cs-trainer.vercel.app` |
+| Vercel | React 프론트엔드 | Vercel 대시보드에서 확인 |
+
+### Google Cloud Console 설정 (OAuth 앱 생성)
+
+1. [console.cloud.google.com](https://console.cloud.google.com) 접속
+2. 프로젝트 생성 또는 선택
+3. **APIs & Services → OAuth consent screen**
+   - User Type: External → Create
+   - App name, support email 입력 → Save
+4. **APIs & Services → Credentials → Create Credentials → OAuth client ID**
+   - Application type: **Web application**
+   - Name: 아무거나 (예: cs-trainer)
+   - **Authorized redirect URIs** 추가:
+     - 배포용: `https://cs-trainer-api.fly.dev/api/auth/google/callback`
+     - 로컬용: `http://localhost:8001/api/auth/google/callback`
+5. 생성 후 **Client ID**와 **Client Secret** 복사
 
 ### 백엔드 (Fly.io)
 
@@ -68,11 +89,35 @@ cd CS/  # 루트 디렉토리에서 실행
 
 fly auth login
 fly launch --name cs-trainer-api --dockerfile cs-trainer/Dockerfile.backend --no-deploy
-fly secrets set ANTHROPIC_API_KEY=sk-xxx
-fly secrets set ALLOWED_ORIGINS=https://cs-trainer.vercel.app
 fly volumes create storage_data --region nrt --size 1
+
+# 환경변수 설정 (전체)
+fly secrets set ANTHROPIC_API_KEY=sk-xxx
+fly secrets set GOOGLE_CLIENT_ID=구글-클라이언트-ID
+fly secrets set GOOGLE_CLIENT_SECRET=구글-클라이언트-시크릿
+fly secrets set JWT_SECRET=$(openssl rand -hex 32)   # 랜덤 비밀키
+fly secrets set API_BASE_URL=https://cs-trainer-api.fly.dev
+fly secrets set FRONTEND_URL=https://실제-vercel-url.vercel.app   # Vercel 대시보드에서 확인
+fly secrets set ALLOWED_ORIGINS=https://실제-vercel-url.vercel.app,http://localhost:5174
+fly secrets set DOCS_PATH=/app/docs
+
 fly deploy --dockerfile cs-trainer/Dockerfile.backend
 ```
+
+> **주의**: `FRONTEND_URL`과 `ALLOWED_ORIGINS`에는 Vercel 대시보드에서 확인한 실제 URL을 넣어야 한다. `cs-trainer.vercel.app` 같은 커스텀 도메인을 설정하지 않은 경우 자동 생성된 URL(`xxx.vercel.app`)을 사용.
+
+### 환경변수 설명
+
+| 변수 | 설명 |
+|------|------|
+| `ANTHROPIC_API_KEY` | Claude API 키 |
+| `GOOGLE_CLIENT_ID` | Google OAuth 클라이언트 ID |
+| `GOOGLE_CLIENT_SECRET` | Google OAuth 클라이언트 시크릿 |
+| `JWT_SECRET` | JWT 서명 비밀키 (랜덤 문자열, 유출 금지) |
+| `API_BASE_URL` | 백엔드 공개 URL (OAuth 콜백 URI 생성에 사용) |
+| `FRONTEND_URL` | 프론트엔드 URL (OAuth 후 리다이렉트 대상) |
+| `ALLOWED_ORIGINS` | CORS 허용 도메인 (쉼표 구분, 정확히 일치해야 함) |
+| `DOCS_PATH` | CS 학습 자료 경로 (Docker 기준 `/app/docs`) |
 
 ### 백엔드 재배포 (코드/Dockerfile 수정 후)
 
