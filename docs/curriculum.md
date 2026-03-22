@@ -19,11 +19,11 @@
 | 01-08 | HTTP/1.1 vs HTTP/2 vs HTTP/3 | `01-08-http-versions.md` | [x] |
 | 01-09 | 쿠키 / 세션 / JWT | `01-09-cookie-session-jwt.md` | [x] |
 | 01-10 | REST API 설계 원칙 | `01-10-rest-api.md` | [x] |
-| 01-11 | 웹소켓 vs HTTP | `01-11-websocket.md` | [ ] |
-| 01-12 | CORS | `01-12-cors.md` | [ ] |
-| 01-13 | 로드 밸런싱 | `01-13-load-balancing.md` | [ ] |
-| 01-14 | CDN | `01-14-cdn.md` | [ ] |
-| 01-15 | 방화벽 / 프록시 / NAT | `01-15-firewall-proxy-nat.md` | [ ] |
+| 01-11 | 웹소켓 vs HTTP | `01-11-websocket.md` | [x] |
+| 01-12 | CORS | `01-12-cors.md` | [x] |
+| 01-13 | 로드 밸런싱 | `01-13-load-balancing.md` | [x] |
+| 01-14 | CDN | `01-14-cdn.md` | [x] |
+| 01-15 | 방화벽 / 프록시 / NAT | `01-15-firewall-proxy-nat.md` | [x] |
 
 ---
 
