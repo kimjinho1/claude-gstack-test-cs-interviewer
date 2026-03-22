@@ -8,6 +8,7 @@ on:
       - 'cs-trainer/backend/**'
       - 'cs-trainer/Dockerfile.backend'
       - 'docs/**'
+      - 'fly.toml'
 
 jobs:
   deploy:
@@ -17,6 +18,9 @@ jobs:
 
       - uses: superfly/flyctl-actions/setup-flyctl@master
 
-      - run: flyctl deploy --dockerfile cs-trainer/Dockerfile.backend --remote-only
+      - name: Deploy to Fly.io
+        # fly.toml의 [deploy] release_command가 migration을 먼저 실행하고
+        # 성공 후 새 인스턴스가 시작됨 — DB 충돌 없음
+        run: flyctl deploy --remote-only
         env:
           FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
