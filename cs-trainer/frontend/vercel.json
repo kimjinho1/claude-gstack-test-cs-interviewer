@@ -1,14 +1,17 @@
 {
   "buildCommand": "npm run build",
   "outputDirectory": "dist",
-  "rewrites": [
+  "routes": [
     {
-      "source": "/api/:path*",
-      "destination": "https://cs-trainer-api.fly.dev/api/:path*"
+      "src": "/api/(.*)",
+      "dest": "https://cs-trainer-api.fly.dev/api/$1"
     },
     {
-      "source": "/(.*)",
-      "destination": "/index.html"
+      "handle": "filesystem"
+    },
+    {
+      "src": "/(.*)",
+      "dest": "/index.html"
     }
   ]
 }
