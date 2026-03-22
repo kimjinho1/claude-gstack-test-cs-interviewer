@@ -5,7 +5,7 @@
       "destination": "https://cs-trainer-api.fly.dev/api/:path*"
     },
     {
-      "source": "/((?!api/).*)",
+      "source": "/(.*)",
       "destination": "/index.html"
     }
   ]
