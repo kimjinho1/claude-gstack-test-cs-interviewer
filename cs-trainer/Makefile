@@ -1,4 +1,20 @@
-.PHONY: dev install backend frontend test
+.PHONY: dev install backend frontend test up down build logs
+
+# Docker Compose commands
+build:
+	docker compose build
+
+up:
+	docker compose up -d
+
+down:
+	docker compose down
+
+logs:
+	docker compose logs -f
+
+restart:
+	docker compose restart
 
 install:
 	cd frontend && npm install
