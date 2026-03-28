@@ -3,10 +3,11 @@ from datetime import datetime
 from backend.sm2 import sm2_update
 
 def test_pass_reps0():
+    # score=8: ease = 2.5 + 0.1 - 2*(0.08+2*0.02) = 2.36 (score<10 이면 감소)
     r = sm2_update(2.5, 1, 0, 8)
     assert r.repetitions == 1
     assert r.interval == 1
-    assert r.ease_factor > 2.5
+    assert r.ease_factor == pytest.approx(2.36, abs=0.01)
 
 def test_pass_reps1():
     r = sm2_update(2.5, 1, 1, 8)

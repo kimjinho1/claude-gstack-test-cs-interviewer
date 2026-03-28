@@ -8,6 +8,10 @@ const mockCancel = vi.fn()
 beforeEach(() => {
   localStorage.clear()
   vi.stubGlobal('speechSynthesis', { speak: mockSpeak, cancel: mockCancel })
+  vi.stubGlobal('SpeechSynthesisUtterance', class {
+    text: string; lang = ''; rate = 1; pitch = 1; volume = 1
+    constructor(text: string) { this.text = text }
+  })
   mockSpeak.mockClear()
   mockCancel.mockClear()
 })
